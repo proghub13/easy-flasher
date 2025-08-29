@@ -1,0 +1,144 @@
+/* web/style.css */
+body {
+    background-color: #121212;
+    color: #ffffff;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    display: flex;
+    width: 90%;
+    height: 90%;
+    background-color: #1e1e1e;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.sidebar {
+    width: 200px;
+    background-color: #252525;
+    padding: 20px;
+    border-right: 1px solid #333;
+    transition: transform 0.3s ease;
+    position: relative;
+}
+
+.sidebar.hidden {
+    transform: translateX(-100%);
+}
+
+.toggle-btn {
+    position: absolute;
+    right: -20px;
+    top: 10px;
+    width: 20px;
+    height: 40px;
+    background-color: #252525;
+    border: 1px solid #333;
+    border-left: none;
+    border-radius: 0 5px 5px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease;
+}
+
+.sidebar.hidden + .toggle-btn {
+    transform: translateX(-200px);
+}
+
+.toggle-btn:hover {
+    background-color: #333;
+}
+
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+
+.sidebar li {
+    padding: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    border-radius: 5px;
+}
+
+.sidebar li:hover {
+    background-color: #333;
+}
+
+.content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    transition: margin-left 0.3s ease;
+}
+
+.container .content {
+    margin-left: 220px;
+}
+
+.container .sidebar.hidden + .content {
+    margin-left: 0;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+h1 {
+    color: #00ffff;
+    text-shadow: 0 0 5px #00ffff;
+}
+
+p {
+    line-height: 1.6;
+}
+
+.instructions ol {
+    padding-left: 20px;
+}
+
+.instructions li {
+    margin-bottom: 20px;
+}
+
+.instructions img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #333;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+.neon-button {
+    background-color: transparent;
+    border: 2px solid #00ffff;
+    color: #00ffff;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 10px #00ffff;
+}
+
+.neon-button:hover {
+    background-color: #00ffff;
+    color: #121212;
+    box-shadow: 0 0 20px #00ffff;
+    transform: scale(1.05);
+}

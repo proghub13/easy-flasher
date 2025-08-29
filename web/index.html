@@ -1,0 +1,159 @@
+<!-- web/index.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUTO_ROOT</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="toggle-btn" onclick="toggleSidebar()">❯</div>
+            <ul>
+                <li onclick="showTab('home')">Главная</li>
+                <li onclick="showTab('root')">root</li>
+                <li onclick="showTab('unlocker')">unlocker</li>
+                <li onclick="showTab('flash')">flash</li>
+            </ul>
+        </div>
+        <div class="content">
+            <div id="home" class="tab-content active">
+                <h1>Здравствуйте!</h1>
+                <p>Вы запустили инструмент для быстрой прошивки любого телефона. Перед началом прочитайте отказ от ответственности. Создатели данного приложения не несут ответственности за возможные поломки вашего девайса, вы всё делаете на свой страх и риск. Проверенные устройства указаны на странице проекта github, на остальных работоспособность не гарантирована, просим вас быть внимательными к функциям в данном приложении.</p>
+            </div>
+            <div id="root" class="tab-content">
+                <h1>root</h1>
+                <p>Хотите получить root права на телефон но боитесь ошибиться? Данный инструмент сделает всё за вас, что от вас требуется так это подключить телефон проводом к материнской плате и следовать инструкциям на экране.</p>
+                <div class="instructions">
+                    <h2>Инструкции:</h2>
+                    <ol>
+                        <li>
+                            <p>Подключите телефон к компьютеру с помощью USB-кабеля.</p>
+                            <img src="placeholders/usb_connect.jpg" alt="Подключение USB">
+                        </li>
+                        <li>
+                            <p>Включите отладку по USB в настройках телефона (Настройки > О телефоне > Нажмите несколько раз на номер сборки, затем Настройки > Система > Опции разработчика > Отладка по USB).</p>
+                            <img src="placeholders/usb_debug.jpg" alt="Включение отладки USB">
+                        </li>
+                        <li>
+                            <p>Нажмите кнопку "Начать рутинг" ниже и следуйте подсказкам.</p>
+                            <img src="placeholders/start_button.jpg" alt="Кнопка начала">
+                            <div>
+                                <label>Путь к патченному boot.img (для Snapdragon):</label>
+                                <input id="root-boot-path" type="text" placeholder="C:\\path\\to\\magisk_patched.img" />
+                            </div>
+                            <div>
+                                <label>Метод рута:</label>
+                                <select id="root-method">
+                                    <option value="auto">Авто</option>
+                                    <option value="brom">Brom (MTK)</option>
+                                    <option value="testpoint">Testpoint (MTK/др.)</option>
+                                </select>
+                            </div>
+                            <div id="method-help" style="font-size:12px; opacity:0.85; margin-top:6px;">
+                                Авто: обычный сценарий через fastboot. Brom: разблокировка через brom-скрипт. Testpoint: потребуется разбор и замыкание контактов.
+                            </div>
+                            <div id="manual-ident" style="display:none; margin-top:10px;">
+                                <div><b>Не удалось определить производителя/модель — укажите вручную:</b></div>
+                                <div>
+                                    <label>Производитель:</label>
+                                    <input id="manual-manufacturer" type="text" placeholder="Например: Xiaomi" />
+                                </div>
+                                <div>
+                                    <label>Модель:</label>
+                                    <input id="manual-model" type="text" placeholder="Например: Redmi Note 8" />
+                                </div>
+                                <div style="font-size:12px; opacity:0.8;">Подсказка: Посмотрите в Настройки > О телефоне, либо используйте AIDA64.</div>
+                                <button class="neon-button" onclick="saveManualIdent()">Сохранить</button>
+                            </div>
+                            <button class="neon-button" onclick="startRoot()">Начать рутинг</button>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+            <div id="unlocker" class="tab-content">
+                <h1>unlocker</h1>
+                <p>Хотите разблокировать загрузчик для прошивки телефона но боитесь накосячить? Тогда данная программа сделает всё за вас. Просто подключите телефон проводом к материнской плате и следуйте инструкциям на экране.</p>
+                <div class="instructions">
+                    <h2>Инструкции:</h2>
+                    <ol>
+                        <li>
+                            <p>Подключите телефон к компьютеру с помощью USB-кабеля.</p>
+                            <img src="placeholders/usb_connect.jpg" alt="Подключение USB">
+                        </li>
+                        <li>
+                            <p>Перейдите в режим fastboot (обычно зажимая кнопки громкости вниз + питание).</p>
+                            <img src="placeholders/fastboot_mode.jpg" alt="Режим fastboot">
+                        </li>
+                        <li>
+                            <div>
+                                <label>Метод разблокировки:</label>
+                                <select id="unlock-method">
+                                    <option value="auto">Авто</option>
+                                    <option value="brom">Brom (MTK)</option>
+                                    <option value="testpoint">Testpoint (MTK/др.)</option>
+                                </select>
+                            </div>
+                            <div style="font-size:12px; opacity:0.85; margin-top:6px;">
+                                Авто: fastboot/официальный способ. Brom: через mtk скрипт на выключенном устройстве (Vol−). Testpoint: потребуется замыкание TP.
+                            </div>
+                            <p>Нажмите кнопку "Разблокировать" ниже и подтвердите на устройстве.</p>
+                            <img src="placeholders/unlock_button.jpg" alt="Кнопка разблокировки">
+                            <button class="neon-button" onclick="startUnlock()">Разблокировать</button>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+            <div id="flash" class="tab-content">
+                <h1>flash</h1>
+                <p>Хочешь прошить свой телефон но боишься накосячить с командами? Тогда данное приложение для вас, просто подключите телефон проводом к материнской плате и следуйте инструкциям на экране, после чего выберите тип прошивки и файлы для прошивки, либо используйте пресеты для вашего телефона.</p>
+                <div class="instructions">
+                    <h2>Инструкции:</h2>
+                    <ol>
+                        <li>
+                            <p>Подключите телефон к компьютеру с помощью USB-кабеля.</p>
+                            <img src="placeholders/usb_connect.jpg" alt="Подключение USB">
+                        </li>
+                        <li>
+                            <p>Выберите файлы прошивки или пресет для вашего устройства.</p>
+                            <img src="placeholders/select_files.jpg" alt="Выбор файлов">
+                            <div>
+                                <label>Раздел:</label>
+                                <select id="flash-partition">
+                                    <option value="boot">boot</option>
+                                    <option value="recovery">recovery</option>
+                                    <option value="system">system</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Путь к образу:</label>
+                                <input id="flash-image-path" type="text" placeholder="C:\\path\\to\\image.img" />
+                            </div>
+                            <div>
+                                <label>Метод прошивки:</label>
+                                <select id="flash-method">
+                                    <option value="auto">Авто</option>
+                                    <option value="brom">Brom (MTK)</option>
+                                    <option value="testpoint">Testpoint (MTK/др.)</option>
+                                </select>
+                            </div>
+                            <div style="font-size:12px; opacity:0.85; margin-top:6px;">
+                                Авто: fastboot. Brom/Testpoint: следуйте инструкциям для входа в особые режимы; затем продолжите прошивку.
+                            </div>
+                        </li>
+                        <li>
+                            <p>Нажмите кнопку "Прошить" и дождитесь завершения.</p>
+                            <img src="placeholders/flash_button.jpg" alt="Кнопка прошивки">
+                            <button class="neon-button" onclick="startFlash()">Прошить</button>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+    <script src="eel.js"></script>
+</body>
+</html>

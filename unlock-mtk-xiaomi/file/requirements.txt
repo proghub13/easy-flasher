@@ -1,0 +1,7 @@
+wheel
+pyusb
+pycryptodome
+colorama
+usb
+
+Xiaomiui | mtkclient
