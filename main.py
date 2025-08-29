@@ -1,6 +1,8 @@
 import eel
 import traceback
 import mtk
+import brom as brom_flash
+import testpoint as tp_flash
 import snapdragon
 from flash.root import root as root_helper
 from flash.system import flash_sys as flash_sys_helper
@@ -280,17 +282,13 @@ def perform_flash(partition: str, image_path: str, method: str = 'auto'):
         manufacturer, model = _get_manufacturer_and_model()
         no_cmd_fastboot = _is_in_profiles(manufacturer, model, 'no_fastboot_reboot')
         if method == 'brom' and soc == 'MediaTek':
-            return {"ok": False, "manual_fastboot": True, "instructions": [
-                "Для прошивки через Brom используйте режим bootrom (удерживайте Vol− на выключенном устройстве)",
-                "После входа продолжите прошивку"
-            ]}
+            # Выполняем прошивку через BROM. Пользователь должен ввести устройство в BROM (Vol− на выключенном).
+            brom_flash.brom_flash_partition(partition, image_path)
+            return {"ok": True}
         if method == 'testpoint':
-            return {"ok": False, "manual_fastboot": True, "instructions": _get_device_instructions(manufacturer, model) or [
-                "Откройте устройство (на ваш риск)",
-                "Замкните testpoint контакты согласно руководству вашей модели",
-                "Подключите USB, войдите в загрузчик",
-                "Вернитесь в приложение и продолжите"
-            ]}
+            # Прошивка через testpoint. Требуется аппаратный вход в TP.
+            tp_flash.testpoint_flash_partition(partition, image_path)
+            return {"ok": True}
         # Для fastboot не важно SoC, но оставим на будущее
         if partition == 'recovery':
             flash_recovery_helper.flash_recovery(image_path)
