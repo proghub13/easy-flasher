@@ -1,33 +1,39 @@
 /* web/style.css */
 body {
-    background-color: #121212;
-    color: #ffffff;
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    background-color: var(--bg);
 }
+
+:root {
+    --neon: #22d3ee;
+    --bg: #0f172a;
+}
+
+[data-theme="blue"] { --neon:#38bdf8; --bg:#0f172a; }
+[data-theme="orange"] { --neon:#f59e0b; --bg:#111827; }
+[data-theme="redblack"] { --neon:#ff2e2e; --bg:#140607; }
+[data-theme="cyberpunk"] { --neon:#d946ef; --bg:#0b0618; }
+[data-theme="space"] { --neon:#8b5cf6; --bg:#0b1020; }
 
 .container {
     display: flex;
-    width: 90%;
-    height: 90%;
-    background-color: #1e1e1e;
+    background-color: rgba(15, 23, 42, 0.6);
     border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
 .sidebar {
     width: 200px;
-    background-color: #252525;
+    background-color: rgba(30, 41, 59, 0.6);
     padding: 20px;
     border-right: 1px solid #333;
     transition: transform 0.3s ease;
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100vh;
+    z-index: 10;
 }
 
 .sidebar.hidden {
@@ -35,12 +41,12 @@ body {
 }
 
 .toggle-btn {
-    position: absolute;
-    right: -20px;
-    top: 10px;
-    width: 20px;
-    height: 40px;
-    background-color: #252525;
+    position: fixed;
+    left: 200px;
+    top: 12px;
+    width: 24px;
+    height: 44px;
+    background-color: rgba(30, 41, 59, 0.8);
     border: 1px solid #333;
     border-left: none;
     border-radius: 0 5px 5px 0;
@@ -48,15 +54,14 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.3s ease;
+    transition: left 0.3s ease;
+    z-index: 20;
 }
 
-.sidebar.hidden + .toggle-btn {
-    transform: translateX(-200px);
-}
+.sidebar.hidden + .toggle-btn { left: 0; }
 
 .toggle-btn:hover {
-    background-color: #333;
+    background-color: #334155;
 }
 
 .sidebar ul {
@@ -73,7 +78,7 @@ body {
 }
 
 .sidebar li:hover {
-    background-color: #333;
+    background-color: #334155;
 }
 
 .content {
@@ -84,10 +89,12 @@ body {
 }
 
 .container .content {
-    margin-left: 220px;
+    margin-left: 240px;
 }
 
-.container .sidebar.hidden + .content {
+/* Sidebar is fixed and always visible; no shifting on hidden */
+/* When sidebar is hidden, recenter the content */
+.content.shifted {
     margin-left: 0;
 }
 
@@ -99,9 +106,13 @@ body {
     display: block;
 }
 
-h1 {
-    color: #00ffff;
-    text-shadow: 0 0 5px #00ffff;
+h1 { text-shadow: 0 0 5px var(--neon); }
+
+.page-title {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--neon);
+    text-shadow: 0 0 8px var(--neon), 0 0 20px rgba(34,211,238,.6);
 }
 
 p {
@@ -124,21 +135,109 @@ p {
     margin-top: 10px;
 }
 
+/* Inputs/selects themed */
+input[type="text"], select {
+    background: transparent;
+    color: #e2e8f0;
+    border: 1px solid var(--neon);
+    border-radius: 6px;
+    padding: 8px 12px;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--neon) 40%, transparent);
+}
+input::placeholder { color: #94a3b8; }
+
+/* Collapsible details styling */
+.neon-details {
+    background: rgba(15,23,42,0.35);
+    border: 1px solid rgba(34,211,238,.35);
+    border-radius: 8px;
+    box-shadow: 0 0 12px rgba(34,211,238,.25);
+    padding: 8px 12px;
+}
+.neon-details > summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--neon);
+}
+.neon-details .details-body {
+    margin-top: 8px;
+}
+.neon-details ol, .neon-details ul { padding-left: 18px; }
+
 .neon-button {
     background-color: transparent;
-    border: 2px solid #00ffff;
-    color: #00ffff;
+    border: 2px solid var(--neon);
+    color: var(--neon);
     padding: 10px 20px;
     font-size: 16px;
     cursor: pointer;
     border-radius: 5px;
     transition: all 0.3s ease;
-    box-shadow: 0 0 10px #00ffff;
+    box-shadow: 0 0 10px var(--neon);
 }
 
 .neon-button:hover {
-    background-color: #00ffff;
-    color: #121212;
-    box-shadow: 0 0 20px #00ffff;
+    background-color: var(--neon);
+    color: #0f172a;
+    box-shadow: 0 0 20px var(--neon);
     transform: scale(1.05);
+}
+
+.icon-btn {
+    background: transparent;
+    color: var(--neon);
+    border: 1px solid transparent;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+.theme-fab {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 30;
+}
+.icon-btn:hover {
+    box-shadow: 0 0 14px color-mix(in srgb, var(--neon) 40%, transparent);
+}
+
+/* Animated vertical sparks background */
+.bg-sparks {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+.bg-sparks::before,
+.bg-sparks::after {
+    content: "";
+    position: absolute;
+    inset: -800px 0 0 0;
+    background-repeat: repeat-y;
+    opacity: .35;
+}
+.bg-sparks::before {
+    background-image:
+        radial-gradient(2px 8px at 10% 90%, rgba(148,163,184,.8) 60%, transparent 62%),
+        radial-gradient(2px 10px at 40% 95%, rgba(148,163,184,.9) 60%, transparent 62%),
+        radial-gradient(2px 7px at 70% 92%, rgba(148,163,184,.7) 60%, transparent 62%),
+        radial-gradient(2px 9px at 90% 98%, rgba(148,163,184,.85) 60%, transparent 62%);
+    background-size: 220px 400px, 320px 600px, 420px 700px, 260px 500px;
+    animation: rise 28s linear infinite;
+}
+.bg-sparks::after {
+    background-image:
+        radial-gradient(2px 8px at 25% 90%, color-mix(in srgb, var(--neon) 80%, transparent) 60%, transparent 62%),
+        radial-gradient(2px 10px at 55% 95%, color-mix(in srgb, var(--neon) 60%, transparent) 60%, transparent 62%),
+        radial-gradient(2px 7px at 85% 92%, color-mix(in srgb, var(--neon) 70%, transparent) 60%, transparent 62%);
+    background-size: 260px 520px, 360px 760px, 300px 680px;
+    animation: rise 36s linear infinite;
+}
+
+@keyframes rise {
+    from { background-position-y: 0, 0, 0, 0; }
+    to   { background-position-y: -800px, -1200px, -1400px, -1000px; }
 }

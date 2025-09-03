@@ -3,7 +3,6 @@ import traceback
 import mtk
 import brom as brom_flash
 import testpoint as tp_flash
-import snapdragon
 from flash.root import root as root_helper
 from flash.system import flash_sys as flash_sys_helper
 from flash.recMode import flash_recovery as flash_recovery_helper
@@ -12,6 +11,7 @@ from fetch import fetch_proc
 import os
 import subprocess
 import json
+import time
 
 
 eel.init("web")
@@ -19,8 +19,8 @@ eel.init("web")
 
 def _detect_soc() -> str:
     cpu = fetch_proc.get_cpu_info()
-    if cpu not in ("MediaTek", "Snapdragon"):
-        raise RuntimeError(f"Не удалось определить SoC: {cpu}")
+    if cpu != "MediaTek":
+        raise RuntimeError(f"Устройство не поддерживается (только MediaTek). Детали: {cpu}")
     return cpu
 
 
@@ -58,6 +58,49 @@ def _reboot_to_bootloader() -> None:
     except Exception:
         pass
     _adb('reboot', 'bootloader')
+
+
+def _has_fastboot_device() -> bool:
+    try:
+        out = _fastboot('devices')
+        for line in out.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if '\tfastboot' in line or line.endswith('fastboot') or ('\t' in line and line.split('\t')[-1]):
+                return True
+        return False
+    except Exception:
+        return False
+
+
+def _has_adb_device() -> bool:
+    try:
+        out = _adb('devices')
+        return '\tdevice' in out
+    except Exception:
+        return False
+
+
+def _ensure_fastboot_auto(wait_seconds: int = 30) -> dict | None:
+    # Returns None if fastboot available; otherwise returns {ok: False, message: ...}
+    if _has_fastboot_device():
+        return None
+    if _has_adb_device():
+        try:
+            _adb('reboot', 'fastboot')
+        except Exception:
+            pass
+        time.sleep(max(1, wait_seconds))
+        if _has_fastboot_device():
+            return None
+        # Did not appear in fastboot; check if still only in adb
+        if _has_adb_device():
+            return {"ok": False, "error": "Вручную перейдите в fastboot и повторите операцию"}
+        # Neither adb nor fastboot
+        return {"ok": False, "error": "Подключите устройство"}
+    # No devices at all
+    return {"ok": False, "error": "Подключите устройство"}
 
 
 def _is_bootloader_unlocked() -> bool:
@@ -167,7 +210,8 @@ def perform_root(image_path: str | None = None, method: str = 'auto'):
                     ]
                 }
             if not no_cmd_fastboot:
-                _reboot_to_bootloader()
+                res = root_helper.perform_mtk_root(image_path)
+                return res
             else:
                 return {"ok": False, "manual_fastboot": True, "instructions": _get_device_instructions(manufacturer, model)}
             if not _is_bootloader_unlocked():
@@ -178,31 +222,16 @@ def perform_root(image_path: str | None = None, method: str = 'auto'):
                     "model": model,
                     "message": "Загрузчик заблокирован. Нужна разблокировка через Brom."
                 }
-            # Разблокирован — продолжаем рут: требуется патченный boot
-            if not image_path:
-                raise RuntimeError("Укажите путь к патченному boot.img для рута")
-            # Отключаем verity/verification и прошиваем patched boot
-            vbmeta_path = os.path.join('unlock-mtk-xiaomi', 'vbmeta.img.empty')
-            try:
-                mtk.disable_verity_and_verification(vbmeta_path if os.path.exists(vbmeta_path) else None)
-            except Exception:
-                pass
-            mtk.flash_boot(image_path)
-            return {"ok": True, "message": "root завершён"}
+            # Разблокирован — продолжаем рут через helper
+            return root_helper.perform_mtk_root(image_path)
+        # Общая схема для MediaTek: нужен патченный boot
+        if not image_path:
+            raise RuntimeError("Укажите путь к патченному boot.img для рута")
+        if not no_cmd_fastboot:
+            return root_helper.perform_mtk_root(image_path)
         else:
-            # Общая схема (Snapdragon и прочие): нужен патченный boot
-            if not image_path:
-                raise RuntimeError("Укажите путь к патченному boot.img для рута")
-            if not no_cmd_fastboot:
-                _reboot_to_bootloader()
-            else:
-                return {"ok": False, "manual_fastboot": True, "instructions": _get_device_instructions(manufacturer, model)}
-            try:
-                snapdragon.disable_verity_and_verification()
-            except Exception:
-                pass
-            snapdragon.flash_boot(image_path)
-            return {"ok": True, "message": "root завершён"}
+            return {"ok": False, "manual_fastboot": True, "instructions": _get_device_instructions(manufacturer, model)}
+        
     except Exception:
         err = traceback.format_exc()
         print(err)
@@ -224,13 +253,9 @@ def perform_unlock(method: str = 'auto'):
                 "Подключите USB, войдите в загрузчик",
                 "Вернитесь в приложение и продолжите"
             ]}
-        if soc == "MediaTek":
-            if not no_cmd_fastboot:
-                _reboot_to_bootloader()
-            mtk.unlock_bootloader()
-        else:
+        if not no_cmd_fastboot:
             _reboot_to_bootloader()
-            snapdragon.unlock_bootloader()
+        mtk.unlock_bootloader()
         return {"ok": True}
     except Exception:
         err = traceback.format_exc()
@@ -295,10 +320,7 @@ def perform_flash(partition: str, image_path: str, method: str = 'auto'):
         elif partition == 'system':
             flash_sys_helper.flash_system(image_path)
         elif partition == 'boot':
-            if soc == 'MediaTek':
-                mtk.flash_boot(image_path)
-            else:
-                snapdragon.flash_boot(image_path)
+            mtk.flash_boot(image_path)
         else:
             raise RuntimeError(f"Неизвестный раздел: {partition}")
         return {"ok": True}

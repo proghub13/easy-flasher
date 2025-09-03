@@ -5,12 +5,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AUTO_ROOT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        neon: { cyan: '#22d3ee' }
+                    },
+                    boxShadow: {
+                        neon: '0 0 0 1px rgb(34 211 238 / 0.75), 0 0 18px 2px rgb(34 211 238 / 0.35)'
+                    }
+                }
+            }
+        }
+    </script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <div class="container">
+<body class="bg-slate-900 text-slate-100">
+    <div class="bg-sparks"></div>
+    <div class="container max-w-7xl mx-auto my-6 relative z-10">
+        <div id="sidebar-toggle" class="toggle-btn" onclick="toggleSidebar()">❮</div>
         <div class="sidebar">
-            <div class="toggle-btn" onclick="toggleSidebar()">❯</div>
             <ul>
                 <li onclick="showTab('home')">Главная</li>
                 <li onclick="showTab('root')">root</li>
@@ -19,137 +35,157 @@
             </ul>
         </div>
         <div class="content">
+            <div class="mb-4 flex items-center justify-between">
+                <h1 class="page-title text-3xl font-semibold">AUTO ROOT</h1>
+                <button class="icon-btn theme-fab" onclick="openThemeModal()" title="Темы">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M21 12.79A9 9 0 0 1 11.21 3 7 7 0 1 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
             <div id="home" class="tab-content active">
-                <h1>Здравствуйте!</h1>
-                <p>Вы запустили инструмент для быстрой прошивки любого телефона. Перед началом прочитайте отказ от ответственности. Создатели данного приложения не несут ответственности за возможные поломки вашего девайса, вы всё делаете на свой страх и риск. Проверенные устройства указаны на странице проекта github, на остальных работоспособность не гарантирована, просим вас быть внимательными к функциям в данном приложении.</p>
+                <h1 class="page-title text-xl">Главная</h1>
+                <details class="neon-details mt-3">
+                    <summary>Пользовательское соглашение</summary>
+                    <div class="details-body">
+                        <p>Вы запустили инструмент для быстрой прошивки телефона. Перед началом внимательно прочитайте условия:</p>
+                        <ul>
+                            <li>Все действия вы выполняете на свой страх и риск.</li>
+                            <li>Авторы не несут ответственности за возможные поломки.</li>
+                            <li>Работоспособность на непроверенных устройствах не гарантируется.</li>
+                        </ul>
+                    </div>
+                </details>
             </div>
             <div id="root" class="tab-content">
-                <h1>root</h1>
-                <p>Хотите получить root права на телефон но боитесь ошибиться? Данный инструмент сделает всё за вас, что от вас требуется так это подключить телефон проводом к материнской плате и следовать инструкциям на экране.</p>
-                <div class="instructions">
-                    <h2>Инструкции:</h2>
-                    <ol>
-                        <li>
-                            <p>Подключите телефон к компьютеру с помощью USB-кабеля.</p>
-                            <img src="placeholders/usb_connect.jpg" alt="Подключение USB">
-                        </li>
-                        <li>
-                            <p>Включите отладку по USB в настройках телефона (Настройки > О телефоне > Нажмите несколько раз на номер сборки, затем Настройки > Система > Опции разработчика > Отладка по USB).</p>
-                            <img src="placeholders/usb_debug.jpg" alt="Включение отладки USB">
-                        </li>
-                        <li>
-                            <p>Нажмите кнопку "Начать рутинг" ниже и следуйте подсказкам.</p>
-                            <img src="placeholders/start_button.jpg" alt="Кнопка начала">
-                            <div>
-                                <label>Путь к патченному boot.img (для Snapdragon):</label>
-                                <input id="root-boot-path" type="text" placeholder="C:\\path\\to\\magisk_patched.img" />
-                            </div>
-                            <div>
-                                <label>Метод рута:</label>
-                                <select id="root-method">
-                                    <option value="auto">Авто</option>
-                                    <option value="brom">Brom (MTK)</option>
-                                    <option value="testpoint">Testpoint (MTK/др.)</option>
-                                </select>
-                            </div>
-                            <div id="method-help" style="font-size:12px; opacity:0.85; margin-top:6px;">
-                                Авто: обычный сценарий через fastboot. Brom: разблокировка через brom-скрипт. Testpoint: потребуется разбор и замыкание контактов.
-                            </div>
-                            <div id="manual-ident" style="display:none; margin-top:10px;">
-                                <div><b>Не удалось определить производителя/модель — укажите вручную:</b></div>
-                                <div>
-                                    <label>Производитель:</label>
-                                    <input id="manual-manufacturer" type="text" placeholder="Например: Xiaomi" />
-                                </div>
-                                <div>
-                                    <label>Модель:</label>
-                                    <input id="manual-model" type="text" placeholder="Например: Redmi Note 8" />
-                                </div>
-                                <div style="font-size:12px; opacity:0.8;">Подсказка: Посмотрите в Настройки > О телефоне, либо используйте AIDA64.</div>
-                                <button class="neon-button" onclick="saveManualIdent()">Сохранить</button>
-                            </div>
-                            <button class="neon-button" onclick="startRoot()">Начать рутинг</button>
-                        </li>
-                    </ol>
+                <h1 class="page-title text-xl">ROOT</h1>
+                <p>Хотите получить root-права? Следуйте шагам ниже.</p>
+                <details class="neon-details mt-3">
+                    <summary>Инструкции</summary>
+                    <div class="details-body">
+                        <ol>
+                            <li>Скачайте приложение Magisk на телефон.</li>
+                            <li>Скачайте свой boot образ на телефон.</li>
+                            <li>Пропатчите свой образ через Magisk.</li>
+                            <li>Скопируйте данный образ на компьютер и укажите путь к нему.</li>
+                            <li>Нажмите на кнопку «Начать рутинг».</li>
+                        </ol>
+                    </div>
+                </details>
+                <div>
+                    <label>Путь к патченному boot.img (MTK):</label>
+                    <input id="root-boot-path" type="text" placeholder="C:\\path\\to\\magisk_patched.img" />
                 </div>
+                <div>
+                    <label>Метод рута:</label>
+                    <select id="root-method">
+                        <option value="auto">Авто</option>
+                        <option value="brom">Brom (MTK)</option>
+                        <option value="testpoint">Testpoint (MTK/др.)</option>
+                    </select>
+                </div>
+                <div id="method-help" style="font-size:12px; opacity:0.85; margin-top:6px;">Авто: обычный сценарий через fastboot. Brom: разблокировка через brom-скрипт. Testpoint: потребуется разбор и замыкание контактов.</div>
+                <div id="manual-ident" style="display:none; margin-top:10px;">
+                    <div><b>Не удалось определить производителя/модель — укажите вручную:</b></div>
+                    <div>
+                        <label>Производитель:</label>
+                        <input id="manual-manufacturer" type="text" placeholder="Например: Xiaomi" />
+                    </div>
+                    <div>
+                        <label>Модель:</label>
+                        <input id="manual-model" type="text" placeholder="Например: Redmi Note 8" />
+                    </div>
+                    <div style="font-size:12px; opacity:0.8;">Подсказка: Посмотрите в Настройки > О телефоне, либо используйте AIDA64.</div>
+                    <button class="neon-button" onclick="saveManualIdent()">Сохранить</button>
+                </div>
+                <button class="neon-button" onclick="startRoot()">Начать рутинг</button>
             </div>
             <div id="unlocker" class="tab-content">
-                <h1>unlocker</h1>
-                <p>Хотите разблокировать загрузчик для прошивки телефона но боитесь накосячить? Тогда данная программа сделает всё за вас. Просто подключите телефон проводом к материнской плате и следуйте инструкциям на экране.</p>
-                <div class="instructions">
-                    <h2>Инструкции:</h2>
-                    <ol>
-                        <li>
-                            <p>Подключите телефон к компьютеру с помощью USB-кабеля.</p>
-                            <img src="placeholders/usb_connect.jpg" alt="Подключение USB">
-                        </li>
-                        <li>
-                            <p>Перейдите в режим fastboot (обычно зажимая кнопки громкости вниз + питание).</p>
-                            <img src="placeholders/fastboot_mode.jpg" alt="Режим fastboot">
-                        </li>
-                        <li>
-                            <div>
-                                <label>Метод разблокировки:</label>
-                                <select id="unlock-method">
-                                    <option value="auto">Авто</option>
-                                    <option value="brom">Brom (MTK)</option>
-                                    <option value="testpoint">Testpoint (MTK/др.)</option>
-                                </select>
-                            </div>
-                            <div style="font-size:12px; opacity:0.85; margin-top:6px;">
-                                Авто: fastboot/официальный способ. Brom: через mtk скрипт на выключенном устройстве (Vol−). Testpoint: потребуется замыкание TP.
-                            </div>
-                            <p>Нажмите кнопку "Разблокировать" ниже и подтвердите на устройстве.</p>
-                            <img src="placeholders/unlock_button.jpg" alt="Кнопка разблокировки">
-                            <button class="neon-button" onclick="startUnlock()">Разблокировать</button>
-                        </li>
-                    </ol>
+                <h1 class="page-title text-xl">UNLOCKER</h1>
+                <p>Разблокируйте загрузчик для прошивки и рута.</p>
+                <details class="neon-details mt-3">
+                    <summary>Инструкции</summary>
+                    <div class="details-body">
+                        <ol>
+                            <li>Выключите телефон.</li>
+                            <li>Отключите кабель от компьютера.</li>
+                            <li>Нажмите на кнопку «Разблокировать».</li>
+                            <li>Когда появится консоль, на выключенном устройстве зажмите кнопку уменьшения громкости и подключите кабель, не отпуская. Держите кнопку до завершения процесса.</li>
+                        </ol>
+                    </div>
+                </details>
+                <div>
+                    <label>Метод разблокировки:</label>
+                    <select id="unlock-method">
+                        <option value="auto">Авто</option>
+                        <option value="brom">Brom (MTK)</option>
+                        <option value="testpoint">Testpoint (MTK/др.)</option>
+                    </select>
                 </div>
+                <p>Нажмите кнопку "Разблокировать" и подтвердите на устройстве.</p>
+                <button class="neon-button" onclick="startUnlock()">Разблокировать</button>
             </div>
             <div id="flash" class="tab-content">
-                <h1>flash</h1>
-                <p>Хочешь прошить свой телефон но боишься накосячить с командами? Тогда данное приложение для вас, просто подключите телефон проводом к материнской плате и следуйте инструкциям на экране, после чего выберите тип прошивки и файлы для прошивки, либо используйте пресеты для вашего телефона.</p>
-                <div class="instructions">
-                    <h2>Инструкции:</h2>
-                    <ol>
-                        <li>
-                            <p>Подключите телефон к компьютеру с помощью USB-кабеля.</p>
-                            <img src="placeholders/usb_connect.jpg" alt="Подключение USB">
-                        </li>
-                        <li>
-                            <p>Выберите файлы прошивки или пресет для вашего устройства.</p>
-                            <img src="placeholders/select_files.jpg" alt="Выбор файлов">
-                            <div>
-                                <label>Раздел:</label>
-                                <select id="flash-partition">
-                                    <option value="boot">boot</option>
-                                    <option value="recovery">recovery</option>
-                                    <option value="system">system</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label>Путь к образу:</label>
-                                <input id="flash-image-path" type="text" placeholder="C:\\path\\to\\image.img" />
-                            </div>
-                            <div>
-                                <label>Метод прошивки:</label>
-                                <select id="flash-method">
-                                    <option value="auto">Авто</option>
-                                    <option value="brom">Brom (MTK)</option>
-                                    <option value="testpoint">Testpoint (MTK/др.)</option>
-                                </select>
-                            </div>
-                            <div style="font-size:12px; opacity:0.85; margin-top:6px;">
-                                Авто: fastboot. Brom/Testpoint: следуйте инструкциям для входа в особые режимы; затем продолжите прошивку.
-                            </div>
-                        </li>
-                        <li>
-                            <p>Нажмите кнопку "Прошить" и дождитесь завершения.</p>
-                            <img src="placeholders/flash_button.jpg" alt="Кнопка прошивки">
-                            <button class="neon-button" onclick="startFlash()">Прошить</button>
-                        </li>
-                    </ol>
+                <h1 class="page-title text-xl">FLASH</h1>
+                <p>Прошивка разделов устройства.</p>
+                <details class="neon-details mt-3">
+                    <summary>Инструкции</summary>
+                    <div class="details-body">
+                        <p class="text-amber-300 font-semibold">ВНИМАНИЕ! ДЛЯ ПРОШИВКИ ТРЕБУЕТСЯ РАЗБЛОКИРОВАННЫЙ ЗАГРУЗЧИК!</p>
+                        <ol>
+                            <li>Перейдите в режим fastboot.</li>
+                            <li>Выберите, что надо прошить: boot, recovery или system.</li>
+                            <li>Выберите файл для прошивки.</li>
+                            <li>Нажмите на кнопку «Прошить» и наслаждайтесь процессом.</li>
+                        </ol>
+                    </div>
+                </details>
+                <div>
+                    <label>Раздел:</label>
+                    <select id="flash-partition">
+                        <option value="boot">boot</option>
+                        <option value="recovery">recovery</option>
+                        <option value="system">system</option>
+                    </select>
                 </div>
+                <div>
+                    <label>Путь к образу:</label>
+                    <input id="flash-image-path" type="text" placeholder="C:\\path\\to\\image.img" />
+                </div>
+                <div>
+                    <label>Метод прошивки:</label>
+                    <select id="flash-method">
+                        <option value="auto">Авто</option>
+                        <option value="brom">Brom (MTK)</option>
+                        <option value="testpoint">Testpoint (MTK/др.)</option>
+                    </select>
+                </div>
+                <button class="neon-button" onclick="startFlash()">Прошить</button>
+            </div>
+        </div>
+    </div>
+    <div id="theme-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50">
+        <div class="w-[640px] max-w-[90vw] bg-slate-900/95 rounded-xl p-4 border border-cyan-400/40 shadow-[0_0_20px_rgba(34,211,238,0.35)]">
+            <h2 class="page-title text-xl mb-3">Themes</h2>
+            <div class="space-y-3">
+                <button class="theme-option w-full text-left px-3 py-3 rounded-md ring-1 ring-cyan-400/60 hover:bg-slate-800/60" data-theme="blue">
+                    <span class="inline-block w-3 h-3 rounded-full align-middle mr-2" style="background:#38bdf8"></span> Blue Theme
+                </button>
+                <button class="theme-option w-full text-left px-3 py-3 rounded-md ring-1 ring-cyan-400/60 hover:bg-slate-800/60" data-theme="orange">
+                    <span class="inline-block w-3 h-3 rounded-full align-middle mr-2" style="background:#f59e0b"></span> Orange Theme
+                </button>
+                <button class="theme-option w-full text-left px-3 py-3 rounded-md ring-1 ring-cyan-400/60 hover:bg-slate-800/60" data-theme="redblack">
+                    <span class="inline-block w-3 h-3 rounded-full align-middle mr-2" style="background:#ef4444"></span> Red-Black Theme
+                </button>
+                <button class="theme-option w-full text-left px-3 py-3 rounded-md ring-1 ring-cyan-400/60 hover:bg-slate-800/60" data-theme="cyberpunk">
+                    <span class="inline-block w-3 h-3 rounded-full align-middle mr-2" style="background:#a855f7"></span> Cyberpunk Theme
+                </button>
+                <button class="theme-option w-full text-left px-3 py-3 rounded-md ring-1 ring-cyan-400/60 hover:bg-slate-800/60" data-theme="space">
+                    <span class="inline-block w-3 h-3 rounded-full align-middle mr-2" style="background:#64748b"></span> Space Theme
+                </button>
+            </div>
+            <div class="mt-4">
+                <button class="neon-button" onclick="closeThemeModal()">Close</button>
             </div>
         </div>
     </div>

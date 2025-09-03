@@ -9,11 +9,50 @@ function showTab(tabId) {
 
 function toggleSidebar() {
     const sidebar = document.querySelector('.sidebar');
-    const toggleBtn = document.querySelector('.toggle-btn');
+    const toggleBtn = document.getElementById('sidebar-toggle');
     const content = document.querySelector('.content');
     sidebar.classList.toggle('hidden');
-    toggleBtn.textContent = sidebar.classList.contains('hidden') ? '❮' : '❯';
+    // Move toggle button with sidebar edge
+    if (sidebar.classList.contains('hidden')) {
+        toggleBtn.style.left = '0px';
+        toggleBtn.textContent = '❯';
+        content.classList.add('shifted');
+    } else {
+        toggleBtn.style.left = '200px';
+        toggleBtn.textContent = '❮';
+        content.classList.remove('shifted');
+    }
 }
+
+function openThemeModal() {
+    const modal = document.getElementById('theme-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeThemeModal() {
+    const modal = document.getElementById('theme-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('app_theme', theme);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('app_theme') || 'blue';
+    applyTheme(saved);
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            applyTheme(btn.getAttribute('data-theme'));
+        });
+    });
+    document.getElementById('theme-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'theme-modal') closeThemeModal();
+    });
+});
 
 async function startRoot() {
     const img = document.getElementById('root-boot-path').value || null;

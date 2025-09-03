@@ -31,7 +31,7 @@ def get_cpu_info():
                 if "mt" in hardware:
                     return "MediaTek"
                 elif "msm" in hardware or "qcom" in hardware:
-                    return "Snapdragon"
+                    return "Не поддерживается (Qualcomm/Snapdragon)"
         
         # Если в cpuinfo нет данных, проверяем платформу через getprop
         if "Не удалось определить" in cpu_model or not cpu_model:
@@ -41,7 +41,7 @@ def get_cpu_info():
                 if "mt" in platform:
                     return "MediaTek"
                 elif "msm" in platform or "qcom" in platform:
-                    return "Snapdragon"
+                    return "Не поддерживается (Qualcomm/Snapdragon)"
             else:
                 # Попытка извлечь информацию из ro.product.board
                 board_match = re.search(r'ro.product.board=([^\n]+)', getprop_output)
@@ -50,13 +50,13 @@ def get_cpu_info():
                     if "mt" in board:
                         return "MediaTek"
                     elif "msm" in board or "qcom" in board:
-                        return "Snapdragon"
+                        return "Не поддерживается (Qualcomm/Snapdragon)"
         
         # Дополнительная проверка по cpu_model
         if cpu_model.lower().find("mediatek") != -1:
             return "MediaTek"
         elif cpu_model.lower().find("snapdragon") != -1 or cpu_model.lower().find("qualcomm") != -1:
-            return "Snapdragon"
+            return "Не поддерживается (Qualcomm/Snapdragon)"
         
         return "Не удалось определить"
 
