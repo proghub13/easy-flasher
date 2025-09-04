@@ -144,6 +144,45 @@ input[type="text"], select {
     padding: 8px 12px;
     box-shadow: 0 0 10px color-mix(in srgb, var(--neon) 40%, transparent);
 }
+/* Improve select visibility and dropdown styling */
+.neon-select {
+    background-color: rgba(15, 23, 42, 0.65);
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--neon) 50%),
+        linear-gradient(135deg, var(--neon) 50%, transparent 50%),
+        linear-gradient(to right, transparent, transparent);
+    background-position:
+        calc(100% - 18px) 50%,
+        calc(100% - 12px) 50%,
+        0 0;
+    background-size: 6px 6px, 6px 6px, 100% 100%;
+    background-repeat: no-repeat;
+    padding-right: 32px;
+    border-radius: 10px;
+    border: 1px solid var(--neon);
+    box-shadow: 0 0 10px var(--neon);
+}
+.neon-select:focus {
+    outline: none;
+    box-shadow: 0 0 18px var(--neon);
+    border-color: color-mix(in srgb, var(--neon) 85%, #ffffff 0%);
+}
+.neon-select option, optgroup option {
+    background-color: var(--bg);
+    color: #e2e8f0;
+}
+.neon-select option:hover,
+.neon-select option:checked {
+    background-color: color-mix(in srgb, var(--neon) 25%, var(--bg));
+    color: #e2e8f0;
+}
+/* Hide default arrow in IE */
+.neon-select::-ms-expand {
+    display: none;
+}
 input::placeholder { color: #94a3b8; }
 
 /* Collapsible details styling */

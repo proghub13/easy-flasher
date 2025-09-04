@@ -78,7 +78,7 @@
                 </div>
                 <div>
                     <label>Метод рута:</label>
-                    <select id="root-method">
+                    <select id="root-method" class="neon-select">
                         <option value="auto">Авто</option>
                         <option value="brom">Brom (MTK)</option>
                         <option value="testpoint">Testpoint (MTK/др.)</option>
@@ -116,7 +116,7 @@
                 </details>
                 <div>
                     <label>Метод разблокировки:</label>
-                    <select id="unlock-method">
+                    <select id="unlock-method" class="neon-select">
                         <option value="auto">Авто</option>
                         <option value="brom">Brom (MTK)</option>
                         <option value="testpoint">Testpoint (MTK/др.)</option>
@@ -142,7 +142,7 @@
                 </details>
                 <div>
                     <label>Раздел:</label>
-                    <select id="flash-partition">
+                    <select id="flash-partition" class="neon-select">
                         <option value="boot">boot</option>
                         <option value="recovery">recovery</option>
                         <option value="system">system</option>
@@ -154,7 +154,7 @@
                 </div>
                 <div>
                     <label>Метод прошивки:</label>
-                    <select id="flash-method">
+                    <select id="flash-method" class="neon-select">
                         <option value="auto">Авто</option>
                         <option value="brom">Brom (MTK)</option>
                         <option value="testpoint">Testpoint (MTK/др.)</option>
@@ -186,6 +186,16 @@
             </div>
             <div class="mt-4">
                 <button class="neon-button" onclick="closeThemeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+    <!-- Error modal -->
+    <div id="error-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50">
+        <div class="w-[640px] max-w-[90vw] bg-slate-900/95 rounded-xl p-4 border border-cyan-400/40 shadow-[0_0_20px_rgba(34,211,238,0.35)]">
+            <h2 class="page-title text-xl mb-3">Ошибка</h2>
+            <div id="error-message" class="text-slate-200 whitespace-pre-wrap"></div>
+            <div class="mt-4">
+                <button class="neon-button" onclick="closeErrorModal()">Закрыть</button>
             </div>
         </div>
     </div>

@@ -36,6 +36,20 @@ function closeThemeModal() {
     modal.classList.remove('flex');
 }
 
+function openErrorModal(message) {
+    const modal = document.getElementById('error-modal');
+    const box = document.getElementById('error-message');
+    box.textContent = message || 'Произошла ошибка';
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeErrorModal() {
+    const modal = document.getElementById('error-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('app_theme', theme);
@@ -117,8 +131,9 @@ async function startFlash() {
 
 function handleResult(res, successMsg) {
     if (!res || !res.ok) {
-        alert('Ошибка: ' + (res && res.error ? res.error : 'Неизвестная'));
+        openErrorModal('Ошибка: ' + (res && res.error ? res.error : 'Неизвестная'));
     } else {
+        // success could use a toast later
         alert(successMsg);
     }
 }

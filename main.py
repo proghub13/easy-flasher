@@ -19,8 +19,6 @@ eel.init("web")
 
 def _detect_soc() -> str:
     cpu = fetch_proc.get_cpu_info()
-    if cpu != "MediaTek":
-        raise RuntimeError(f"Устройство не поддерживается (только MediaTek). Детали: {cpu}")
     return cpu
 
 
@@ -43,7 +41,7 @@ def _fastboot(*args: str) -> str:
 def _ensure_device_online() -> None:
     out = _adb('devices')
     if '\tdevice' not in out:
-        raise RuntimeError('Устройство не подключено или отладка по USB не включена')
+        raise RuntimeError('Устройства не найдены, проверьте отладку по USB и попробуйте ещё раз')
 
 
 # Ручные переопределения производителя/модели (если ADB не дал данные)
@@ -174,17 +172,8 @@ def _get_device_instructions(manufacturer: str, model: str) -> list[str]:
 def perform_root(image_path: str | None = None, method: str = 'auto'):
     try:
         soc = _detect_soc()
-        manufacturer, model = _get_manufacturer_and_model()
-        if manufacturer == 'Unknown' or model == 'Unknown':
-            return {
-                "ok": False,
-                "manual_ident": True,
-                "manufacturers": [
-                    "xiaomi", "google", "oneplus", "samsung", "huawei", "lg", "sony", "meizu", "oppo", "realme", "vivo", "motorola", "nokia"
-                ],
-                "message": "Не удалось определить производителя/модель через ADB. Укажите вручную (можно посмотреть в Настройки > О телефоне или в AIDA64)."
-            }
         _ensure_device_online()
+        manufacturer, model = _get_manufacturer_and_model()
         no_unlock = _is_in_profiles(manufacturer, model, 'no_unlock_required')
         no_cmd_fastboot = _is_in_profiles(manufacturer, model, 'no_fastboot_reboot')
         if soc == 'MediaTek' and 'xiaomi' in manufacturer.lower():
@@ -244,6 +233,8 @@ def perform_unlock(method: str = 'auto'):
         soc = _detect_soc()
         manufacturer, model = _get_manufacturer_and_model()
         no_cmd_fastboot = _is_in_profiles(manufacturer, model, 'no_fastboot_reboot')
+        if soc != 'MediaTek':
+            return {"ok": False, "error": "Разблокировка загрузчика поддерживается только для MediaTek"}
         if method == 'brom' and soc == 'MediaTek':
             return {"ok": False, "needs_unlock": True, "message": "Brom: выключите устройство, удерживайте Vol− и подключите USB. Затем подтвердите на устройстве."}
         if method == 'testpoint':
@@ -278,6 +269,7 @@ def run_mtk_unlock():
 @eel.expose
 def get_device_info():
     try:
+        _ensure_device_online()
         soc = _detect_soc()
         manufacturer, model = _get_manufacturer_and_model()
         return {"ok": True, "soc": soc, "manufacturer": manufacturer, "model": model}
