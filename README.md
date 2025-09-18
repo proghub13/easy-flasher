@@ -15,7 +15,7 @@ easy-flasher является приложением для прошивки т�
 
 На данный момент приложение находится на этапе разработки, и большинство функций работают нестабильно или вовсе не работают, просим не писать о багах в issues на данный момент.
 
-Поддержать разработчика можно через donation alerts (https://www.donationalerts.com/r/korobochekspichek) или переводом на карту 2202 2032 6959 5973 (Сбербанк)
+Поддержать разработчика можно через DALink (https://dalink.to/easy_flasher) или переводом на карту 2202 2032 6959 5973 (Сбербанк)
 
 Планы на будущее:
 * Автоматическое получение образов с официальных сайтов
@@ -40,7 +40,7 @@ If a bug or error is found, write to Issues, our developers will fix the problem
 
 At the moment, the application is under development, and most of the functions are unstable or not working at all. Please do not write about bugs in issues at the moment.
 
-You can support the developer through donation alerts (https://www.donationalerts.com/r/korobochekspichek ) or by transfer to card 2202 2032 6959 5973 (Sberbank)
+You can support the developer through DALink (https://dalink.to/easy_flasher) or by transfer to card 2202 2032 6959 5973 (Sberbank)
 
 Future plans:
 * Automatic image acquisition from official websites
