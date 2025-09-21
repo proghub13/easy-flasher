@@ -15,14 +15,14 @@ easy-flasher является приложением для прошивки т�
 
 На данный момент приложение находится на этапе разработки, и большинство функций работают нестабильно или вовсе не работают, просим не писать о багах в issues на данный момент.
 
-Если вы хотите поддержать разработчика, то можете перевести деньги на карту 2202 2032 6959 5973 (Сбербанк)
+Поддержать разработчика можно через DALink (https://dalink.to/easy_flasher) или переводом на карту 2202 2032 6959 5973 (Сбербанк)
 
 Планы на будущее:
 * Автоматическое получение образов с официальных сайтов
 * Улучшения безопасности
 * Полная автоматическая работа
 * Оптимизация
-* Плагины
+* Плагины (https://github.com/proghub13/easy-flasher-legacyplugins)
 
 > EN
 
@@ -40,11 +40,11 @@ If a bug or error is found, write to Issues, our developers will fix the problem
 
 At the moment, the application is under development, and most of the functions are unstable or not working at all. Please do not write about bugs in issues at the moment.
 
-If you want to support the developer, you can transfer money to the card 2202 2032 6959 5973 (Sberbank)
+You can support the developer through DALink (https://dalink.to/easy_flasher) or by transfer to card 2202 2032 6959 5973 (Sberbank)
 
 Future plans:
 * Automatic image acquisition from official websites
 * Security improvements
 * Full automatic operation
 * Optimization
-* Plugins
+* Plugins (https://github.com/proghub13/easy-flasher-legacyplugins)
