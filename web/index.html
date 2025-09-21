@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AUTO_ROOT</title>
+    <title>EASY-FLASHER</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -32,11 +32,13 @@
                 <li onclick="showTab('root')">root</li>
                 <li onclick="showTab('unlocker')">unlocker</li>
                 <li onclick="showTab('flash')">flash</li>
+                <li onclick="showTab('backups')">Бэкапы</li>
+                <li id="plugins-nav" class="hidden" onclick="showTab('plugins')">plugins</li>
             </ul>
         </div>
         <div class="content">
             <div class="mb-4 flex items-center justify-between">
-                <h1 class="page-title text-3xl font-semibold">AUTO ROOT</h1>
+                <h1 class="page-title text-3xl font-semibold">EASY-FLASHER</h1>
                 <button class="icon-btn theme-fab" onclick="openThemeModal()" title="Темы">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M21 12.79A9 9 0 0 1 11.21 3 7 7 0 1 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -162,10 +164,25 @@
                 </div>
                 <button class="neon-button" onclick="startFlash()">Прошить</button>
             </div>
+            <div id="backups" class="tab-content">
+                <h1 class="page-title text-xl">БЭКАПЫ</h1>
+                <p>Управление резервными копиями разделов устройства.</p>
+                <div class="mt-3 flex gap-3 flex-wrap">
+                    <button class="neon-button" onclick="openCustomBackupModal()">Создать бэкап</button>
+                    <button class="neon-button" onclick="loadBackupsList()">Обновить список</button>
+                    <button class="neon-button" onclick="checkFastbootStatus()">Проверить Fastboot</button>
+                    <button class="neon-button" onclick="rebootToFastboot()">Перезагрузить в Fastboot</button>
+                </div>
+                <div id="backups-list" class="mt-3 space-y-3"></div>
+            </div>
+            <div id="plugins" class="tab-content">
+                <h1 class="page-title text-xl">PLUGINS</h1>
+                <div id="plugins-list" class="mt-3 space-y-3"></div>
+            </div>
         </div>
     </div>
     <div id="theme-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50">
-        <div class="w-[640px] max-w-[90vw] bg-slate-900/95 rounded-xl p-4 border border-cyan-400/40 shadow-[0_0_20px_rgba(34,211,238,0.35)]">
+        <div class="w-[640px] max-w-[90vw] rounded-xl p-4 modal-panel">
             <h2 class="page-title text-xl mb-3">Themes</h2>
             <div class="space-y-3">
                 <button class="theme-option w-full text-left px-3 py-3 rounded-md ring-1 ring-cyan-400/60 hover:bg-slate-800/60" data-theme="blue">
@@ -189,9 +206,77 @@
             </div>
         </div>
     </div>
+    <!-- Custom Backup Modal -->
+    <div id="custom-backup-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50">
+        <div class="w-[640px] max-w-[90vw] rounded-xl p-4 modal-panel">
+            <h2 class="page-title text-xl mb-3">Создать бэкап</h2>
+            <div class="space-y-3">
+                <div>
+                    <label for="backup-partition-select">Раздел для бэкапа:</label>
+                    <select id="backup-partition-select" class="neon-select w-full"></select>
+                </div>
+                <div>
+                    <label for="backup-name">Название бэкапа:</label>
+                    <input id="backup-name" type="text" class="neon-input w-full" placeholder="Мой бэкап" />
+                </div>
+                <div>
+                    <label for="backup-method-select">Метод бэкапа:</label>
+                    <select id="backup-method-select" class="neon-select w-full">
+                        <option value="auto">Авто</option>
+                        <option value="fastboot">Fastboot (все устройства)</option>
+                        <option value="brom">Brom (MTK)</option>
+                        <option value="testpoint">Testpoint (MTK/др.)</option>
+                    </select>
+                    <div class="text-xs text-slate-400 mt-1">
+                        Авто: автоматический выбор метода. Fastboot: универсальный метод для всех устройств. 
+                        Brom/Testpoint: только для MediaTek устройств, требуют специальных условий.
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-between">
+                <button class="neon-button" onclick="startCustomBackup()">Создать бэкап</button>
+                <button class="neon-button" onclick="closeCustomBackupModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup Edit Modal -->
+    <div id="backup-edit-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50">
+        <div class="w-[640px] max-w-[90vw] rounded-xl p-4 modal-panel">
+            <h2 class="page-title text-xl mb-3">Редактировать бэкап</h2>
+            <div class="space-y-3">
+                <div>
+                    <label>Имя файла:</label>
+                    <div id="edit-backup-filename" class="text-slate-300 font-mono text-sm"></div>
+                </div>
+                <div>
+                    <label>Размер:</label>
+                    <div id="edit-backup-size" class="text-slate-300"></div>
+                </div>
+                <div>
+                    <label>Дата создания:</label>
+                    <div id="edit-backup-date" class="text-slate-300"></div>
+                </div>
+                <div>
+                    <label>Путь:</label>
+                    <div id="edit-backup-path" class="text-slate-300 font-mono text-sm break-all"></div>
+                </div>
+                <div class="text-amber-300 text-sm">
+                    ⚠️ Редактирование бинарных файлов образов не рекомендуется. 
+                    Используйте специализированные инструменты для модификации образов.
+                </div>
+            </div>
+            <div class="mt-4 flex justify-between">
+                <button class="neon-button" onclick="restoreBackupFromEdit()">Восстановить</button>
+                <button class="neon-button" onclick="deleteBackupFromEdit()">Удалить</button>
+                <button class="neon-button" onclick="closeBackupEditModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Error modal -->
     <div id="error-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50">
-        <div class="w-[640px] max-w-[90vw] bg-slate-900/95 rounded-xl p-4 border border-cyan-400/40 shadow-[0_0_20px_rgba(34,211,238,0.35)]">
+        <div class="w-[640px] max-w-[90vw] rounded-xl p-4 modal-panel">
             <h2 class="page-title text-xl mb-3">Ошибка</h2>
             <div id="error-message" class="text-slate-200 whitespace-pre-wrap"></div>
             <div class="mt-4">

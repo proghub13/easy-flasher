@@ -1,0 +1,10 @@
+<div class="neon-details" id="ui-demo-panel">
+  <div class="details-body">
+    <div class="text-neon-400"><b>UI Demo</b></div>
+    <div class="text-slate-300">Эта вкладка добавлена плагином. Кнопка ниже вызывает переопределённый root.</div>
+    <div class="mt-2">
+      <button class="neon-button" onclick="(async ()=>{ const r = await eel.call_action('perform_root', null, 'auto')(); handleResult(r, 'OK'); })()">Вызвать переопределённый root</button>
+    </div>
+  </div>
+</div>
+

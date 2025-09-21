@@ -7,6 +7,8 @@ body {
 :root {
     --neon: #22d3ee;
     --bg: #0f172a;
+    --panel: rgba(15, 23, 42, 0.6);
+    --sidebar: rgba(30, 41, 59, 0.6);
 }
 
 [data-theme="blue"] { --neon:#38bdf8; --bg:#0f172a; }
@@ -17,14 +19,14 @@ body {
 
 .container {
     display: flex;
-    background-color: rgba(15, 23, 42, 0.6);
+    background-color: var(--panel);
     border-radius: 10px;
     overflow: hidden;
 }
 
 .sidebar {
     width: 200px;
-    background-color: rgba(30, 41, 59, 0.6);
+    background-color: var(--sidebar);
     padding: 20px;
     border-right: 1px solid #333;
     transition: transform 0.3s ease;
@@ -46,7 +48,7 @@ body {
     top: 12px;
     width: 24px;
     height: 44px;
-    background-color: rgba(30, 41, 59, 0.8);
+    background-color: var(--sidebar);
     border: 1px solid #333;
     border-left: none;
     border-radius: 0 5px 5px 0;
@@ -192,6 +194,14 @@ input::placeholder { color: #94a3b8; }
     border-radius: 8px;
     box-shadow: 0 0 12px rgba(34,211,238,.25);
     padding: 8px 12px;
+}
+.text-neon-400 { color: var(--neon); }
+
+/* Themed modal panel using CSS variables */
+.modal-panel {
+    background-color: color-mix(in srgb, var(--bg) 92%, black 8%);
+    border: 1px solid color-mix(in srgb, var(--neon) 40%, transparent);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--neon) 35%, transparent);
 }
 .neon-details > summary {
     cursor: pointer;

@@ -1,0 +1,17 @@
+{
+  "themes": [],
+  "last": null,
+  "last_inline": {
+    "name": null,
+    "primary": "#ffffff",
+    "secondary": "#000000",
+    "palette": {
+      "neon": "#ffffff",
+      "bg": "#1e1e1e",
+      "accent": "#262626",
+      "soft": "#ffffff",
+      "ring": "#ffffff",
+      "shadow": "#262626"
+    }
+  }
+}
