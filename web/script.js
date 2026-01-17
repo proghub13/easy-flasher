@@ -43,6 +43,25 @@ function closeErrorModal() {
     modal.classList.remove('flex');
 }
 
+function openInfoModal(message, title) {
+    const modal = document.getElementById('info-modal');
+    const box = document.getElementById('info-message');
+    if (title) {
+        modal.querySelector('h2').textContent = String(title);
+    } else {
+        modal.querySelector('h2').textContent = 'Информация';
+    }
+    box.textContent = message || '';
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeInfoModal() {
+    const modal = document.getElementById('info-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('app_theme', theme);
@@ -53,13 +72,42 @@ function applyTheme(theme) {
         root.style.removeProperty('--bg');
         root.style.removeProperty('--panel');
         root.style.removeProperty('--sidebar');
+        // Очищаем все background-свойства, чтобы не ломать фоновые эффекты
         document.body.style.removeProperty('background-color');
+        document.body.style.removeProperty('background-image');
+        document.body.style.removeProperty('background-repeat');
+        document.body.style.removeProperty('background-position');
+        document.body.style.removeProperty('background-size');
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const saved = localStorage.getItem('app_theme') || 'blue';
     applyTheme(saved);
+    
+    // Автоматическая проверка обновлений при запуске (только если пользователь не отключил)
+    const autoCheckUpdates = localStorage.getItem('auto_check_updates');
+    if (autoCheckUpdates !== 'false') {
+        setTimeout(async () => {
+            try {
+                const result = await eel.check_for_updates()();
+                if (result.success && result.has_update) {
+                    const updateInfo = await eel.get_update_info()();
+                    if (updateInfo.success) {
+                        currentUpdateInfo = updateInfo;
+                        showUpdateModal(updateInfo, result.current_version);
+                        // Подчёркиваем кнопку обновления как индикатор
+                        const btn = document.getElementById('update-fab');
+                        if (btn) btn.classList.add('update-available');
+                    }
+                }
+            } catch (error) {
+                // Тихо игнорируем ошибки автоматической проверки
+                console.log('Auto-update check failed:', error);
+            }
+        }, 2000); // Проверяем через 2 секунды после загрузки
+    }
+    
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.addEventListener('click', () => {
             applyTheme(btn.getAttribute('data-theme'));
@@ -77,6 +125,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Настройки кастомной темы теперь добавляются плагином (если есть)
+    // Автоопределение устройства для вкладки прошивок
+    try {
+        const dev = await eel.fw_get_device()();
+        if (!dev || !dev.ok || !dev.connected) {
+            // Откроем модалку выбора устройства, если вкладка прошивок активна или при первом входе
+            // открывать не будем автоматически, пользователь нажмет иконку
+        }
+    } catch (_) { /* ignore */ }
 });
 
 async function startRoot() {
@@ -107,7 +163,123 @@ async function startRoot() {
         handleResult(res2, 'Рут завершён');
         return;
     }
-    handleResult(res, 'Рут завершён');
+    // Проверяем результат установки Magisk
+    if (res && res.magisk_installed) {
+        handleResult(res, 'Рут завершён и Magisk установлен');
+    } else if (res && res.magisk_error) {
+        handleResult(res, 'Рут завершён, но не удалось установить Magisk');
+        console.warn('Ошибка установки Magisk:', res.magisk_error);
+    } else {
+        handleResult(res, 'Рут завершён');
+    }
+}
+
+async function installMagiskManually() {
+    try {
+        const result = await eel.install_magisk()();
+        if (result.success) {
+            alert('Magisk успешно установлен!');
+        } else {
+            alert('Ошибка установки Magisk: ' + result.error);
+        }
+    } catch (error) {
+        alert('Ошибка: ' + error);
+    }
+}
+
+// Функции для работы с обновлениями
+let currentUpdateInfo = null;
+
+async function checkForUpdates() {
+    try {
+        const result = await eel.check_for_updates()();
+        if (result.success) {
+            if (result.has_update) {
+                // Получаем подробную информацию об обновлении
+                const updateInfo = await eel.get_update_info()();
+                if (updateInfo.success) {
+                    currentUpdateInfo = updateInfo;
+                    showUpdateModal(updateInfo, result.current_version);
+                    const btn = document.getElementById('update-fab');
+                    if (btn) btn.classList.add('update-available');
+                } else {
+                    openErrorModal('Ошибка получения информации об обновлении: ' + updateInfo.error);
+                }
+            } else {
+                openInfoModal('У вас уже установлена последняя версия!', 'Обновления');
+                const btn = document.getElementById('update-fab');
+                if (btn) btn.classList.remove('update-available');
+            }
+        } else {
+            openErrorModal('Ошибка проверки обновлений: ' + result.error);
+        }
+    } catch (error) {
+        openErrorModal('Ошибка: ' + error);
+    }
+}
+
+function showUpdateModal(updateInfo, currentVersion) {
+    document.getElementById('current-version').textContent = currentVersion;
+    document.getElementById('latest-version').textContent = updateInfo.version;
+    document.getElementById('update-description').textContent = updateInfo.body || 'Описание недоступно';
+    
+    // Форматируем дату
+    const date = new Date(updateInfo.published_at);
+    document.getElementById('update-date').textContent = date.toLocaleDateString('ru-RU');
+    
+    // Если это тестовый режим, добавляем индикацию
+    if (currentVersion === "0.0.0") {
+        const modal = document.getElementById('update-modal');
+        const title = modal.querySelector('h2');
+        title.innerHTML = 'Обновление доступно <span class="text-yellow-400 text-sm">(ТЕСТОВЫЙ РЕЖИМ)</span>';
+    }
+    
+    document.getElementById('update-modal').classList.remove('hidden');
+    document.getElementById('update-modal').classList.add('flex');
+}
+
+function closeUpdateModal() {
+    // Сохраняем настройку авто-проверки
+    const disableAutoUpdates = document.getElementById('disable-auto-updates').checked;
+    localStorage.setItem('auto_check_updates', disableAutoUpdates ? 'false' : 'true');
+    
+    // Сбрасываем заголовок
+    const modal = document.getElementById('update-modal');
+    const title = modal.querySelector('h2');
+    title.textContent = 'Обновление доступно';
+    
+    document.getElementById('update-modal').classList.add('hidden');
+    document.getElementById('update-modal').classList.remove('flex');
+    currentUpdateInfo = null;
+}
+
+async function downloadUpdate() {
+    if (!currentUpdateInfo || !currentUpdateInfo.download_url) {
+        openErrorModal('Ошибка: нет ссылки для скачивания');
+        return;
+    }
+    
+    try {
+        const result = await eel.download_update(currentUpdateInfo.download_url)();
+        if (result.success) {
+            openInfoModal(`Обновление скачано: ${result.message}\n\nФайл сохранен в папку updates/`, 'Обновление скачано');
+            closeUpdateModal();
+            const btn = document.getElementById('update-fab');
+            if (btn) btn.classList.remove('update-available');
+        } else {
+            openErrorModal('Ошибка скачивания: ' + result.error);
+        }
+    } catch (error) {
+        openErrorModal('Ошибка: ' + error);
+    }
+}
+
+function openUpdateInBrowser() {
+    if (currentUpdateInfo && currentUpdateInfo.html_url) {
+        window.open(currentUpdateInfo.html_url, '_blank');
+    } else {
+        openErrorModal('Ошибка: нет ссылки на релиз');
+    }
 }
 
 async function saveManualIdent() {
@@ -213,7 +385,13 @@ function applyCustomTheme(pal) {
         root.style.setProperty('--sidebar', rgbaSidebar);
     } catch (e) { /* noop */ }
     localStorage.setItem('app_theme', 'custom');
-    document.body.style.backgroundColor = pal.bg || '';
+    // Устанавливаем фон через CSS переменную, а не inline стиль, чтобы не ломать фоновые эффекты
+    document.body.style.backgroundColor = '';
+    document.body.style.backgroundImage = '';
+    document.body.style.backgroundRepeat = '';
+    document.body.style.backgroundPosition = '';
+    document.body.style.backgroundSize = '';
+    // Фон будет браться из CSS переменной --bg через style.css
 }
 
 function clearAllPluginAssets() {
@@ -598,6 +776,10 @@ function showTab(tabId) {
     if (tabId === 'backups') {
         loadBackupsList();
     }
+    if (tabId === 'firmware') {
+        fwInitOnce();
+        fwRefresh();
+    }
 }
 
 async function openCustomBackupModal() {
@@ -865,4 +1047,568 @@ async function rebootToFastboot() {
     } catch (e) {
         openErrorModal('Ошибка перезагрузки: ' + e.message);
     }
+}
+
+// -------------------- Firmware Browser Logic --------------------
+let fwInitialized = false;
+let fwShowOnlyFavorites = false;
+let fwSelectedMan = '';
+let fwSelectedMod = '';
+let fwCurrentItems = [];
+let fwCurrentCategory = 'recovery';
+let fwDownloadTarget = null;
+let fwDownloadProgressActive = false;
+let fwDownloadProgressName = '';
+let fwDownloadProgressTotal = 0;
+let fwDownloadProgressTimer = null;
+
+
+async function fwEnsureDeviceSelection() {
+    let man = fwSelectedMan || '';
+    let mod = fwSelectedMod || '';
+    if (!man && !mod) {
+        try {
+            const dev = await eel.fw_get_device()();
+            if (dev && dev.ok && dev.connected) {
+                man = dev.manufacturer;
+                mod = dev.model;
+                fwSelectedMan = man;
+                fwSelectedMod = mod;
+            } else {
+                openFwDeviceModal();
+                return null;
+            }
+        } catch(_) {
+            openFwDeviceModal();
+            return null;
+        }
+    }
+    return { man, mod };
+}
+
+function fwInitOnce() {
+    if (fwInitialized) return;
+    fwInitialized = true;
+    const deviceInput = document.getElementById('fwm-input');
+    const suggList = document.getElementById('fwm-suggestions');
+    const cat = document.getElementById('fw-category');
+    if (cat) {
+        cat.addEventListener('change', () => {
+            fwRefresh();
+        });
+    }
+    if (deviceInput && suggList) {
+        let lastQuery = '';
+        deviceInput.addEventListener('input', async () => {
+            const q = deviceInput.value.trim();
+            lastQuery = q;
+            if (q.length < 2) {
+                suggList.classList.add('hidden');
+                suggList.innerHTML = '';
+                return;
+            }
+            try {
+                const res = await eel.fw_find_device(q)();
+                if (!res || !res.ok || lastQuery !== q) return;
+                const items = res.items || [];
+                if (items.length === 0) {
+                    suggList.classList.add('hidden');
+                    suggList.innerHTML = '';
+                    return;
+                }
+                suggList.innerHTML = items.map(it => `<div class=\"suggestion-item\" data-man=\"${escapeHtml(it.manufacturer)}\" data-mod=\"${escapeHtml(it.model)}\">${escapeHtml(it.manufacturer)} ${escapeHtml(it.model)}</div>`).join('');
+                suggList.classList.remove('hidden');
+                suggList.querySelectorAll('.suggestion-item').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const man = el.getAttribute('data-man') || '';
+                        const mod = el.getAttribute('data-mod') || '';
+                        deviceInput.value = `${man} ${mod}`.trim();
+                        fwSelectedMan = man;
+                        fwSelectedMod = mod;
+                        suggList.classList.add('hidden');
+                    });
+                });
+            } catch (e) { /* ignore */ }
+        });
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('fw-device-modal');
+            if (modal && !modal.contains(e.target) && e.target !== deviceInput) {
+                suggList.classList.add('hidden');
+            }
+        });
+    }
+}
+
+async function fwRefresh() {
+    const listDiv = document.getElementById('fw-list');
+    const cat = document.getElementById('fw-category')?.value || 'recovery';
+    listDiv.innerHTML = '<div class="text-slate-400">Загрузка...</div>';
+    let man = fwSelectedMan || '';
+    let mod = fwSelectedMod || '';
+    if (!man && !mod) {
+        try {
+            const dev = await eel.fw_get_device()();
+            if (dev && dev.ok && dev.connected) {
+                man = dev.manufacturer;
+                mod = dev.model;
+            } else {
+                openFwDeviceModal();
+            }
+        } catch(_) { openFwDeviceModal(); }
+    }
+    try {
+        const favRes = await eel.fw_get_favorites()();
+        const favNames = (favRes && favRes.ok ? (favRes.names || []) : []);
+
+        let items = [];
+        if (fwShowOnlyFavorites) {
+            // В режиме избранного показываем оба раздела, без фильтра по устройству
+            const [rec, sys] = await Promise.all([
+                eel.fw_list('recovery', null, null)(),
+                eel.fw_list('system', null, null)()
+            ]);
+            const all = [
+                ...((rec && rec.ok && rec.items) ? rec.items.map(it => ({ ...it, _category: 'recovery' })) : []),
+                ...((sys && sys.ok && sys.items) ? sys.items.map(it => ({ ...it, _category: 'system' })) : [])
+            ];
+            items = all.filter(it => favNames.includes(String(it.name || '')));
+        } else {
+            const res = await eel.fw_list(cat, man || null, mod || null)();
+            if (!res || !res.ok) {
+                listDiv.innerHTML = '<div class="text-red-400">Не удалось загрузить прошивки</div>';
+                return;
+            }
+            items = (res.items || []).map(it => ({ ...it, _category: cat }));
+        }
+
+        // Сортируем: совместимые выше несовместимых
+        items.sort((a, b) => {
+            const ca = isCompatible(a, man, mod) ? 1 : 0;
+            const cb = isCompatible(b, man, mod) ? 1 : 0;
+            return cb - ca;
+        });
+
+        fwCurrentItems = items;
+        fwCurrentCategory = cat;
+
+        const rendered = items
+            .map((it, idx) => renderFirmwareCard(it, man, mod, favNames, idx))
+            .join('');
+        listDiv.innerHTML = rendered || '<div class="text-slate-400">Ничего не найдено</div>';
+    } catch (e) {
+        listDiv.innerHTML = '<div class="text-red-400">Ошибка: ' + e.message + '</div>';
+    }
+}
+
+function renderFirmwareCard(it, man, mod, favNames, index) {
+    const name = String(it.name || '');
+    const isFav = favNames.includes(name) || !!it.favorite;
+    const starClass = isFav ? 'fw-star fav' : 'fw-star';
+    const comp = isCompatible(it, man, mod);
+    const rowClass = comp ? '' : 'fw-incompatible';
+    const subtitle = `${(it.vendors||[]).join(', ')} · ${(it.models||[]).join(', ')}`;
+    return `
+        <div class="neon-details ${rowClass}">
+            <div class="details-body fw-card">
+                <div class="fw-left">
+                    <input type="checkbox" class="fw-select" data-name="${escapeHtml(name)}" ${comp? '' : ''} />
+                    <div>
+                        <div class="text-neon-400 font-semibold">${escapeHtml(name)}</div>
+                        <div class="text-slate-400 text-xs">${escapeHtml(subtitle)}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button class="icon-btn" title="Скачать" onclick="openFwDownloadModal(${index})">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M6 11l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <div class="${starClass}" title="Добавить в избранное" onclick="fwToggleFavorite('${escapeHtml(name)}')">${isFav ? '★' : '☆'}</div>
+                </div>
+            </div>
+        </div>`;
+}
+
+function isCompatible(it, man, mod) {
+    try {
+        if (!man && !mod) return true;
+        const vendors = (it.vendors || []).map(v => String(v).toLowerCase());
+        const models = (it.models || []).map(m => String(m).toLowerCase());
+        const okVendor = vendors.length === 0 || vendors.includes(String(man).toLowerCase());
+        const lmod = String(mod || '').toLowerCase();
+        const okModel = models.length === 0 || models.some(m => lmod.includes(m));
+        return okVendor && okModel;
+    } catch(_) { return true; }
+}
+
+async function fwToggleFavorite(name) {
+    try {
+        const res = await eel.fw_toggle_favorite(name)();
+        if (res && res.ok) {
+            fwRefresh();
+        } else {
+            openErrorModal('Не удалось изменить избранное');
+        }
+    } catch (e) {
+        openErrorModal('Ошибка: ' + e.message);
+    }
+}
+
+function fwShowFavorites() {
+    fwShowOnlyFavorites = !fwShowOnlyFavorites;
+    fwRefresh();
+}
+
+function ensureFwDownloadProgress(name) {
+    const resolved = name || fwDownloadProgressName || (fwDownloadTarget?.name || '');
+    if (!resolved) {
+        return '';
+    }
+    if (!fwDownloadProgressActive || fwDownloadProgressName !== resolved) {
+        openFwDownloadProgress(resolved);
+    }
+    startFwDownloadPolling(resolved);
+    return resolved;
+}
+
+function openFwDownloadProgress(name) {
+    const modal = document.getElementById('fw-download-progress-modal');
+    if (!modal) return;
+    fwDownloadProgressActive = true;
+    fwDownloadProgressName = name || '';
+    fwDownloadProgressTotal = 0;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    const nameEl = document.getElementById('fw-download-progress-name');
+    if (nameEl) nameEl.textContent = fwDownloadProgressName;
+    updateFwDownloadProgressBar(0, 0);
+    setFwDownloadStatus('Подготовка к скачиванию...');
+    startFwDownloadPolling(fwDownloadProgressName);
+}
+
+function closeFwDownloadProgress() {
+    const modal = document.getElementById('fw-download-progress-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    fwDownloadProgressActive = false;
+    fwDownloadProgressName = '';
+    fwDownloadProgressTotal = 0;
+    stopFwDownloadPolling();
+}
+
+function updateFwDownloadProgressBar(downloaded, total) {
+    const bar = document.getElementById('fw-download-progress-bar');
+    const percentEl = document.getElementById('fw-download-progress-percent');
+    let percent = 0;
+    if (total && total > 0) {
+        percent = Math.min(100, Math.floor((downloaded / total) * 100));
+    } else if (downloaded && downloaded > 0) {
+        percent = 100;
+    }
+    if (bar) {
+        bar.style.width = `${percent}%`;
+    }
+    if (percentEl) {
+        if (total && total > 0) {
+            percentEl.textContent = `${percent}%`;
+        } else if (downloaded && downloaded > 0) {
+            percentEl.textContent = '...';
+        } else {
+            percentEl.textContent = '0%';
+        }
+    }
+    fwDownloadProgressTotal = total || 0;
+}
+
+function setFwDownloadStatus(text) {
+    const statusEl = document.getElementById('fw-download-progress-status');
+    if (statusEl) statusEl.textContent = text || '';
+}
+
+function formatBytes(bytes) {
+    const value = Number(bytes || 0);
+    if (!value || value <= 0) return '0 Б';
+    const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+    let idx = 0;
+    let num = value;
+    while (num >= 1024 && idx < units.length - 1) {
+        num /= 1024;
+        idx += 1;
+    }
+    const precision = idx === 0 ? 0 : (num >= 100 ? 0 : 1);
+    return `${num.toFixed(precision)} ${units[idx]}`;
+}
+
+eel.expose(start_fw_download);
+function start_fw_download(name, total) {
+    const resolved = ensureFwDownloadProgress(name);
+    const totalNum = Number(total || 0);
+    if (totalNum > 0) {
+        updateFwDownloadProgressBar(0, totalNum);
+    } else {
+        updateFwDownloadProgressBar(0, 0);
+    }
+    setFwDownloadStatus('Подготовка к скачиванию...');
+}
+
+eel.expose(report_fw_download_progress);
+function report_fw_download_progress(name, downloaded, total) {
+    const resolved = ensureFwDownloadProgress(name);
+    const downloadedNum = Number(downloaded || 0);
+    const totalNum = Number(total || 0);
+    updateFwDownloadProgressBar(downloadedNum, totalNum);
+    if (totalNum > 0) {
+        setFwDownloadStatus(`Скачано ${formatBytes(downloadedNum)} из ${formatBytes(totalNum)}`);
+    } else {
+        setFwDownloadStatus(`Скачано ${formatBytes(downloadedNum)}`);
+    }
+}
+
+eel.expose(finish_fw_download);
+function finish_fw_download(name, path, total) {
+    const resolved = ensureFwDownloadProgress(name);
+    const totalNum = Number(total || fwDownloadProgressTotal || 0);
+    const downloadedNum = totalNum > 0 ? totalNum : (fwDownloadProgressTotal || 1);
+    updateFwDownloadProgressBar(downloadedNum, totalNum || downloadedNum);
+    setFwDownloadStatus('Скачивание завершено');
+}
+
+eel.expose(fail_fw_download);
+function fail_fw_download(name, error) {
+    const resolved = ensureFwDownloadProgress(name);
+    setFwDownloadStatus(`Ошибка: ${error || 'Неизвестная ошибка'}`);
+}
+
+function startFwDownloadPolling(name) {
+    if (!name) {
+        return;
+    }
+    stopFwDownloadPolling();
+    fwDownloadProgressTimer = setInterval(() => {
+        eel.fw_get_download_progress(name)()
+            .then((res) => {
+                if (!res || !res.ok) {
+                    return;
+                }
+                const downloaded = Number(res.downloaded || 0);
+                const total = Number(res.total || 0);
+                updateFwDownloadProgressBar(downloaded, total);
+                const status = String(res.status || '').toLowerCase();
+                if (status === 'starting') {
+                    setFwDownloadStatus('Подготовка к скачиванию...');
+                } else if (status === 'downloading') {
+                    if (total > 0) {
+                        setFwDownloadStatus(`Скачано ${formatBytes(downloaded)} из ${formatBytes(total)}`);
+                    } else {
+                        setFwDownloadStatus(`Скачано ${formatBytes(downloaded)}`);
+                    }
+                } else if (status === 'finished') {
+                    setFwDownloadStatus('Скачивание завершено');
+                    stopFwDownloadPolling();
+                } else if (status === 'error') {
+                    setFwDownloadStatus(`Ошибка: ${res.error || 'Неизвестная ошибка'}`);
+                    stopFwDownloadPolling();
+                }
+            })
+            .catch(() => {});
+    }, 500);
+}
+
+function stopFwDownloadPolling() {
+    if (fwDownloadProgressTimer) {
+        clearInterval(fwDownloadProgressTimer);
+        fwDownloadProgressTimer = null;
+    }
+}
+
+function openFwDownloadModal(index) {
+    const modal = document.getElementById('fw-download-modal');
+    if (!modal) return;
+    const item = fwCurrentItems[index];
+    if (!item) {
+        openErrorModal('Прошивка не найдена. Обновите список.');
+        return;
+    }
+    fwDownloadTarget = item;
+    const nameEl = document.getElementById('fw-download-name');
+    const partEl = document.getElementById('fw-download-partition');
+    const sourceEl = document.getElementById('fw-download-source');
+    if (nameEl) nameEl.textContent = String(item.name || '');
+    if (partEl) partEl.textContent = String(item.partition || '—');
+    if (sourceEl) sourceEl.textContent = String(item.url || '');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeFwDownloadModal() {
+    const modal = document.getElementById('fw-download-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    fwDownloadTarget = null;
+}
+
+async function fwDownloadOnly() {
+    if (!fwDownloadTarget) return;
+    const target = fwDownloadTarget;
+    const targetName = String(target.name || '');
+    const device = await fwEnsureDeviceSelection();
+    if (!device) return;
+    const { man, mod } = device;
+    const category = target._category || fwCurrentCategory || (document.getElementById('fw-category')?.value || 'recovery');
+    closeFwDownloadModal();
+    openFwDownloadProgress(targetName);
+    let res = null;
+    let err = null;
+    try {
+        res = await eel.fw_download(category, targetName, man || null, mod || null)();
+    } catch (e) {
+        err = e;
+    } finally {
+        closeFwDownloadProgress();
+        try { await eel.fw_clear_download_progress(targetName)(); } catch (_) {}
+        fwDownloadTarget = null;
+    }
+    if (err) {
+        openErrorModal('Ошибка скачивания: ' + err.message);
+        return;
+    }
+    if (res && res.ok) {
+        openInfoModal(`Файл скачан: ${res.path}`);
+    } else {
+        openErrorModal('Ошибка скачивания: ' + (res ? (res.error || 'Неизвестная ошибка') : 'Неизвестная ошибка'));
+    }
+}
+
+async function fwDownloadAndInstall() {
+    if (!fwDownloadTarget) return;
+    const target = fwDownloadTarget;
+    const targetName = String(target.name || '');
+    const device = await fwEnsureDeviceSelection();
+    if (!device) return;
+    const { man, mod } = device;
+    const category = target._category || fwCurrentCategory || (document.getElementById('fw-category')?.value || 'recovery');
+    closeFwDownloadModal();
+    openFwDownloadProgress(targetName);
+    setFwDownloadStatus('Скачивание прошивки...');
+
+    let downloadRes = null;
+    let downloadErr = null;
+    try {
+        downloadRes = await eel.fw_download(category, targetName, man || null, mod || null)();
+    } catch (e) {
+        downloadErr = e;
+    } finally {
+        closeFwDownloadProgress();
+        try { await eel.fw_clear_download_progress(targetName)(); } catch (_) {}
+    }
+
+    if (downloadErr) {
+        fwDownloadTarget = null;
+        openErrorModal('Ошибка скачивания: ' + downloadErr.message);
+        return;
+    }
+    if (!downloadRes || !downloadRes.ok) {
+        fwDownloadTarget = null;
+        openErrorModal('Ошибка скачивания: ' + (downloadRes ? (downloadRes.error || 'Неизвестная ошибка') : 'Неизвестная ошибка'));
+        return;
+    }
+
+    const pre = {};
+    if (downloadRes.path) {
+        pre[targetName] = downloadRes.path;
+    }
+
+    try {
+        let installRes = await eel.fw_install(category, [targetName], man || null, mod || null, 'auto', false, pre)();
+        if (installRes && installRes.needs_backup_confirm) {
+            if (confirm('Не удалось сделать бэкап. Продолжить без бэкапа?')) {
+                const res2 = await eel.fw_install(category, [targetName], man || null, mod || null, 'auto', true, pre)();
+                handleResult(res2, 'Установка завершена');
+            } else {
+                openInfoModal('Установка отменена пользователем');
+            }
+        } else {
+            handleResult(installRes, 'Установка завершена');
+        }
+    } catch (e) {
+        openErrorModal('Ошибка установки: ' + e.message);
+    }
+
+    fwDownloadTarget = null;
+}
+
+async function fwInstallSelected() {
+    const cat = document.getElementById('fw-category')?.value || 'recovery';
+    const checkboxes = Array.from(document.querySelectorAll('#firmware .fw-select'));
+    const names = checkboxes.filter(ch => ch.checked).map(ch => ch.getAttribute('data-name'));
+    if (!names.length) {
+        openErrorModal('Выберите прошивки для установки');
+        return;
+    }
+    const device = await fwEnsureDeviceSelection();
+    if (!device) return;
+    const { man, mod } = device;
+    try {
+        const res = await eel.fw_install(cat, names, man || null, mod || null, 'auto', false)();
+        if (res && res.needs_backup_confirm) {
+            // Показать подтверждение продолжить без бэкапа
+            if (confirm('Не удалось сделать бэкап. Продолжить без бэкапа?')) {
+                const res2 = await eel.fw_install(cat, names, man || null, mod || null, 'auto', true)();
+                handleResult(res2, 'Установка завершена');
+            } else {
+                openInfoModal('Установка отменена пользователем');
+            }
+            return;
+        }
+        handleResult(res, 'Установка завершена');
+    } catch (e) {
+        openErrorModal('Ошибка установки: ' + e.message);
+    }
+}
+
+function openFwDeviceModal() {
+    const modal = document.getElementById('fw-device-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    const input = document.getElementById('fwm-input');
+    if (input) {
+        input.focus();
+        input.select();
+    }
+}
+
+function closeFwDeviceModal() {
+    const modal = document.getElementById('fw-device-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    const sugg = document.getElementById('fwm-suggestions');
+    if (sugg) {
+        sugg.classList.add('hidden');
+        sugg.innerHTML = '';
+    }
+}
+
+function saveFwManualDevice() {
+    const input = document.getElementById('fwm-input');
+    if (!input) return;
+    const v = (input.value || '').trim();
+    if (!v) {
+        openErrorModal('Введите производителя и модель');
+        return;
+    }
+    const parts = v.split(/\s+/);
+    fwSelectedMan = parts.shift() || '';
+    fwSelectedMod = parts.join(' ');
+    if (!fwSelectedMan || !fwSelectedMod) {
+        openErrorModal('Введите производителя и модель полностью');
+        return;
+    }
+    closeFwDeviceModal();
+    fwRefresh();
 }

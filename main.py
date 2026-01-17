@@ -14,6 +14,7 @@ import os
 import subprocess
 import json
 import time
+from typing import Callable
 
 
 eel.init("web")
@@ -204,6 +205,226 @@ def plugin_call(name: str, *args):
 def get_plugin_assets() -> dict:
     # Return JS/CSS/HTML text assets grouped by plugin id
     return PLUGIN_ASSETS
+
+
+@eel.expose
+def install_magisk() -> dict:
+    """Скачивает и устанавливает последнюю версию Magisk"""
+    try:
+        # Скачиваем Magisk APK
+        apk_path, error = _download_magisk_apk()
+        if error:
+            return {"success": False, "error": error}
+            
+        # Устанавливаем APK
+        success, error = _install_magisk_apk(apk_path)
+        if error:
+            return {"success": False, "error": error}
+            
+        return {
+            "success": True, 
+            "message": "Magisk успешно установлен!",
+            "apk_path": apk_path
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": f"Ошибка установки Magisk: {str(e)}"}
+
+
+@eel.expose
+def check_magisk_installed() -> dict:
+    """Проверяет, установлен ли Magisk на устройстве"""
+    try:
+        online, err = _ensure_device_online()
+        if not online:
+            return {"installed": False, "error": err}
+            
+        result, error = _adb('shell pm list packages | grep magisk')
+        if error:
+            return {"installed": False, "error": error}
+            
+        installed = 'com.topjohnwu.magisk' in result
+        return {
+            "installed": installed,
+            "message": "Magisk установлен" if installed else "Magisk не установлен"
+        }
+        
+    except Exception as e:
+        return {"installed": False, "error": f"Ошибка проверки Magisk: {str(e)}"}
+
+
+@eel.expose
+def check_for_updates() -> dict:
+    """Проверяет наличие обновлений"""
+    try:
+        current_version = _get_current_version()
+        
+        # Если версия 0.0.0 - показываем тестовое обновление
+        if current_version == "0.0.0":
+            return {
+                "success": True,
+                "current_version": current_version,
+                "latest_version": "1.0.0",
+                "has_update": True,
+                "message": "Доступна новая версия 1.0.0 (тестовый режим)"
+            }
+        
+        # Обычная проверка через GitHub
+        latest_version, error = _get_latest_version()
+        
+        if error:
+            return {"success": False, "error": error}
+            
+        has_update = _compare_versions(current_version, latest_version)
+        
+        return {
+            "success": True,
+            "current_version": current_version,
+            "latest_version": latest_version,
+            "has_update": has_update,
+            "message": f"Доступна новая версия {latest_version}" if has_update else "У вас последняя версия"
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": f"Ошибка проверки обновлений: {str(e)}"}
+
+
+@eel.expose
+def get_update_info() -> dict:
+    """Получает информацию об обновлении"""
+    try:
+        current_version = _get_current_version()
+        
+        # Если версия 0.0.0 - возвращаем тестовую информацию
+        if current_version == "0.0.0":
+            return {
+                "success": True,
+                "version": "1.0.0",
+                "name": "AutoRoot v1.0.0 - Тестовое обновление",
+                "body": """🎉 **AutoRoot v1.0.0 - Тестовое обновление**
+
+**Новые возможности:**
+✅ Система автоматических обновлений
+✅ Автоматическая установка Magisk
+✅ Улучшенная система бэкапов
+✅ Диагностика Fastboot
+✅ Новые темы интерфейса
+
+**Исправления:**
+🔧 Улучшена стабильность работы
+🔧 Исправлены ошибки в системе бэкапов
+🔧 Оптимизирована работа с MediaTek устройствами
+
+**Технические улучшения:**
+⚡ Ускорена работа приложения
+⚡ Улучшена обработка ошибок
+⚡ Добавлена поддержка новых устройств
+
+*Это тестовое обновление для проверки системы обновлений.*""",
+                "download_url": "https://github.com/proghub13/easy-flasher/releases/latest/download/AutoRoot.exe",
+                "published_at": "2025-01-21T12:00:00Z",
+                "html_url": "https://github.com/proghub13/easy-flasher/releases/latest"
+            }
+        
+        # Обычная проверка через GitHub (список релизов)
+        import requests
+        api_url = "https://api.github.com/repos/proghub13/easy-flasher/releases"
+        response = requests.get(api_url, timeout=10)
+        response.raise_for_status()
+        releases = response.json() or []
+        if not releases:
+            return {"success": False, "error": "Релизы не найдены в репозитории"}
+        # Берем первый не-draft релиз (GitHub возвращает в порядке от нового к старому)
+        data = next((r for r in releases if not r.get("draft", False)), releases[0])
+        
+        # Получаем URL для скачивания
+        download_url = None
+        assets = data.get("assets", [])
+        for asset in assets:
+            if asset["name"].endswith(".exe"):
+                download_url = asset["browser_download_url"]
+                break
+        if not download_url and assets:
+            # Фоллбек: берем первый ассет (напр., .rar)
+            download_url = assets[0].get("browser_download_url")
+        
+        return {
+            "success": True,
+            "version": data.get("tag_name", "").lstrip("v"),
+            "name": data.get("name", ""),
+            "body": data.get("body", ""),
+            "download_url": download_url,
+            "published_at": data.get("published_at", ""),
+            "html_url": data.get("html_url", "")
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": f"Ошибка получения информации: {str(e)}"}
+
+
+@eel.expose
+def download_update(download_url: str) -> dict:
+    """Скачивает обновление"""
+    try:
+        current_version = _get_current_version()
+        
+        # Если версия 0.0.0 - создаем тестовый файл
+        if current_version == "0.0.0":
+            import os
+            
+            # Создаем папку для обновлений
+            updates_dir = pathlib.Path(os.getcwd()) / 'updates'
+            updates_dir.mkdir(exist_ok=True)
+            
+            # Создаем тестовый файл
+            filename = f"AutoRoot_v1.0.0_test_{int(time.time())}.exe"
+            file_path = updates_dir / filename
+            
+            # Создаем простой тестовый файл
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write('# Тестовое обновление AutoRoot v1.0.0\n')
+                f.write('# Это файл создан для тестирования системы обновлений\n')
+                f.write('# В реальном релизе здесь будет исполняемый файл\n')
+            
+            return {
+                "success": True,
+                "file_path": str(file_path),
+                "message": f"Тестовое обновление создано: {filename}"
+            }
+        
+        # Обычное скачивание с GitHub
+        import requests
+        import os
+        from urllib.parse import urlparse
+        
+        # Создаем папку для обновлений
+        updates_dir = pathlib.Path(os.getcwd()) / 'updates'
+        updates_dir.mkdir(exist_ok=True)
+        
+        # Получаем имя файла из URL
+        parsed_url = urlparse(download_url)
+        filename = os.path.basename(parsed_url.path)
+        if not filename.endswith('.exe'):
+            filename = f"AutoRoot_update_{int(time.time())}.exe"
+        
+        file_path = updates_dir / filename
+        
+        # Скачиваем файл
+        response = requests.get(download_url, timeout=30, stream=True)
+        response.raise_for_status()
+        
+        with open(file_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        
+        return {
+            "success": True,
+            "file_path": str(file_path),
+            "message": f"Обновление скачано: {filename}"
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": f"Ошибка скачивания: {str(e)}"}
 
 
 @eel.expose
@@ -469,6 +690,148 @@ def _ensure_backup_directory() -> None:
     backup_dir.mkdir(exist_ok=True)
 
 
+def _get_latest_magisk_url() -> tuple[str, None] | tuple[None, str]:
+    """Получает URL последней версии Magisk"""
+    try:
+        import requests
+        # GitHub API для получения последнего релиза Magisk
+        api_url = "https://api.github.com/repos/topjohnwu/Magisk/releases/latest"
+        response = requests.get(api_url, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        for asset in data.get("assets", []):
+            if asset["name"].endswith(".apk"):
+                return asset["browser_download_url"], None
+                
+        return None, "Не найден APK файл в последнем релизе Magisk"
+    except Exception as e:
+        return None, f"Ошибка получения информации о Magisk: {str(e)}"
+
+
+def _download_magisk_apk() -> tuple[str, None] | tuple[None, str]:
+    """Скачивает последнюю версию Magisk APK"""
+    try:
+        import requests
+        
+        # Получаем URL последней версии
+        url, error = _get_latest_magisk_url()
+        if error:
+            return None, error
+            
+        # Создаем папку для APK файлов
+        apk_dir = pathlib.Path(os.getcwd()) / 'downloads'
+        apk_dir.mkdir(exist_ok=True)
+        
+        # Путь для сохранения APK
+        apk_path = apk_dir / 'magisk.apk'
+        
+        # Скачиваем файл
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        
+        with open(apk_path, 'wb') as f:
+            f.write(response.content)
+            
+        return str(apk_path), None
+        
+    except Exception as e:
+        return None, f"Ошибка скачивания Magisk: {str(e)}"
+
+
+def _install_magisk_apk(apk_path: str) -> tuple[bool, None] | tuple[None, str]:
+    """Устанавливает Magisk APK через ADB"""
+    try:
+        # Проверяем, что устройство подключено
+        online, err = _ensure_device_online()
+        if not online:
+            return None, f"Устройство не подключено: {err}"
+            
+        # Устанавливаем APK
+        result, error = _adb(f'install "{apk_path}"')
+        if error:
+            return None, f"Ошибка установки Magisk: {error}"
+            
+        # Проверяем успешность установки
+        result, error = _adb('shell pm list packages | grep magisk')
+        if error or 'com.topjohnwu.magisk' not in result:
+            return None, "Magisk не был установлен корректно"
+            
+        return True, None
+        
+    except Exception as e:
+        return None, f"Ошибка установки Magisk: {str(e)}"
+
+
+def _get_current_version() -> str:
+    """Возвращает текущую версию приложения"""
+    return "1.0.0"
+
+
+def _get_latest_version() -> tuple[str, None] | tuple[None, str]:
+    """Получает последнюю версию с GitHub"""
+    try:
+        import requests
+        # GitHub API: список релизов
+        api_url = "https://api.github.com/repos/proghub13/easy-flasher/releases"
+        response = requests.get(api_url, timeout=10)
+        response.raise_for_status()
+        releases = response.json() or []
+        if not releases:
+            return None, "Релизы не найдены в репозитории"
+        data = next((r for r in releases if not r.get("draft", False)), releases[0])
+        latest_version = data.get("tag_name", "").lstrip("v")  # Убираем 'v' если есть
+        
+        if not latest_version:
+            return None, "Не удалось получить версию из релиза"
+            
+        return latest_version, None
+        
+    except Exception as e:
+        return None, f"Ошибка получения версии: {str(e)}"
+
+
+def _compare_versions(current: str, latest: str) -> bool:
+    """Сравнивает версии. Возвращает True если есть обновление"""
+    try:
+        current_parts = [int(x) for x in current.split('.')]
+        latest_parts = [int(x) for x in latest.split('.')]
+        
+        # Дополняем до одинаковой длины
+        max_len = max(len(current_parts), len(latest_parts))
+        current_parts.extend([0] * (max_len - len(current_parts)))
+        latest_parts.extend([0] * (max_len - len(latest_parts)))
+        
+        return latest_parts > current_parts
+        
+    except Exception:
+        return False
+
+
+def _get_download_url() -> tuple[str, None] | tuple[None, str]:
+    """Получает URL для скачивания последней версии"""
+    try:
+        import requests
+        api_url = "https://api.github.com/repos/proghub13/easy-flasher/releases"
+        response = requests.get(api_url, timeout=10)
+        response.raise_for_status()
+        releases = response.json() or []
+        if not releases:
+            return None, "Релизы не найдены в репозитории"
+        data = next((r for r in releases if not r.get("draft", False)), releases[0])
+        assets = data.get("assets", [])
+        for asset in assets:
+            if asset["name"].endswith(".exe"):
+                return asset["browser_download_url"], None
+        if assets:
+            return assets[0].get("browser_download_url"), None
+                
+        return None, "Не найден exe файл в последнем релизе"
+        
+    except Exception as e:
+        return None, f"Ошибка получения ссылки: {str(e)}"
+
+
 @eel.expose
 def get_partitions() -> dict:
     try:
@@ -551,12 +914,34 @@ def perform_root(image_path: str | None = None, method: str = 'auto'):
                     "message": f"Загрузчик заблокирован. Нужна разблокировка через Brom. Ошибка: {unlock_err}"
                 }
             # Разблокирован — продолжаем рут через helper
-            return root_helper.perform_mtk_root(image_path)
+            result = root_helper.perform_mtk_root(image_path)
+            # Если рутинг успешен, автоматически устанавливаем Magisk
+            if result.get("ok") and result.get("message") == "root завершён":
+                print("Рутинг завершен успешно. Устанавливаем Magisk...")
+                magisk_result = install_magisk()
+                if magisk_result.get("success"):
+                    result["magisk_installed"] = True
+                    result["message"] = "root завершён и Magisk установлен"
+                else:
+                    result["magisk_error"] = magisk_result.get("error", "Неизвестная ошибка")
+                    result["message"] = "root завершён, но не удалось установить Magisk"
+            return result
         # Общая схема для MediaTek: нужен патченный boot
         if not image_path:
             raise RuntimeError("Укажите путь к патченному boot.img для рута")
         if not no_cmd_fastboot:
-            return root_helper.perform_mtk_root(image_path)
+            result = root_helper.perform_mtk_root(image_path)
+            # Если рутинг успешен, автоматически устанавливаем Magisk
+            if result.get("ok") and result.get("message") == "root завершён":
+                print("Рутинг завершен успешно. Устанавливаем Magisk...")
+                magisk_result = install_magisk()
+                if magisk_result.get("success"):
+                    result["magisk_installed"] = True
+                    result["message"] = "root завершён и Magisk установлен"
+                else:
+                    result["magisk_error"] = magisk_result.get("error", "Неизвестная ошибка")
+                    result["message"] = "root завершён, но не удалось установить Magisk"
+            return result
         else:
             return {"ok": False, "manual_fastboot": True, "instructions": _get_device_instructions(manufacturer, model)}
         
@@ -1186,5 +1571,957 @@ def write_plugin_file(file_path: str, content: str) -> dict:
 
 # Инициализация папки backups при запуске
 _ensure_backup_directory()
+
+##############################################
+# ---------------- Firmware Browser API ---------------- #
+##############################################
+
+_FW_CATALOG_PATH = pathlib.Path(os.getcwd()) / 'firmware_catalog.json'
+_FW_FAVORITES_PATH = pathlib.Path(os.getcwd()) / 'favorites.json'
+_FW_DOWNLOAD_PROGRESS: dict[str, dict] = {}
+
+FIRMWARE_CATALOG_BUILTIN: dict[str, list[dict]] = {
+    "recovery": [
+        {"name": "OrangeFox - Redmi Note 7 (lavender)", "partition": "recovery", "vendors": ["Xiaomi"], "models": ["redmi note 7", "lavender"], "url": "https://api.orangefox.download/device/lavender/recovery.img"},
+        {"name": "OrangeFox - Redmi Note 8 (ginkgo)", "partition": "recovery", "vendors": ["Xiaomi"], "models": ["redmi note 8", "ginkgo"], "url": "https://api.orangefox.download/device/ginkgo/recovery.img"},
+        {"name": "OrangeFox - POCO X3 NFC (surya)", "partition": "recovery", "vendors": ["POCO", "Xiaomi"], "models": ["poco x3 nfc", "surya"], "url": "https://api.orangefox.download/device/surya/recovery.img"},
+        {"name": "OrangeFox - Redmi Note 8T (willow)", "partition": "recovery", "vendors": ["Xiaomi"], "models": ["redmi note 8t", "willow"], "url": "https://api.orangefox.download/device/willow/recovery.img"},
+        {"name": "OrangeFox - Redmi 9 (lancelot)", "partition": "recovery", "vendors": ["Xiaomi"], "models": ["redmi 9", "lancelot"], "url": "https://api.orangefox.download/device/lancelot/recovery.img"},
+        {"name": "OrangeFox - Redmi 6A (cactus)", "partition": "recovery", "vendors": ["Xiaomi"], "models": ["redmi 6a", "cactus"], "url": "https://api.orangefox.download/device/cactus/recovery.img"},
+        {"name": "PitchBlack - Redmi Note 5 (whyred)", "partition": "recovery", "vendors": ["Xiaomi"], "models": ["redmi note 5", "whyred"], "url": "https://pitchblackrecovery.com/download/whyred"},
+        {"name": "SHRP - POCO F1 (beryllium)", "partition": "recovery", "vendors": ["POCO", "Xiaomi"], "models": ["poco f1", "beryllium"], "url": "https://sourceforge.net/projects/shrp/files/beryllium/"},
+    ],
+    "system": [
+        {"name": "PixelExperience - Redmi Note 8 (ginkgo)", "partition": "system", "vendors": ["Xiaomi"], "models": ["redmi note 8", "ginkgo"], "url": "https://download.pixelexperience.org/ginkgo"},
+        {"name": "crDroid - Redmi Note 8 (ginkgo)", "partition": "system", "vendors": ["Xiaomi"], "models": ["redmi note 8", "ginkgo"], "url": "https://crdroid.net/ginkgo"},
+        {"name": "EvolutionX - Poco F3 (alioth)", "partition": "system", "vendors": ["POCO", "Xiaomi"], "models": ["poco f3", "alioth"], "url": "https://evolution-x.org/device/alioth"},
+        {"name": "ArrowOS - POCO X3 Pro (vayu)", "partition": "system", "vendors": ["POCO", "Xiaomi"], "models": ["poco x3 pro", "vayu"], "url": "https://arrowos.net/download?device=vayu"},
+        {"name": "MIUI Mix - Redmi Note 8 (ginkgo)", "partition": "system", "vendors": ["Xiaomi"], "models": ["redmi note 8", "ginkgo"], "url": "https://miuimix.ru/"},
+        {"name": "MIUI Mix - POCO X3 NFC (surya)", "partition": "system", "vendors": ["POCO", "Xiaomi"], "models": ["poco x3 nfc", "surya"], "url": "https://miuimix.ru/"},
+        {"name": "LineageOS - OnePlus 3 (oneplus3)", "partition": "system", "vendors": ["OnePlus"], "models": ["oneplus 3", "oneplus3"], "url": "https://download.lineageos.org/devices/oneplus3"},
+        {"name": "LineageOS - Nexus 5X (bullhead)", "partition": "system", "vendors": ["Google"], "models": ["nexus 5x", "bullhead"], "url": "https://download.lineageos.org/devices/bullhead"},
+    ]
+}
+
+
+def _load_fw_catalog() -> dict:
+    """Загружает основной каталог и все расширения из каталога catalog/ и объединяет их."""
+    base: dict = {
+        "recovery": list(FIRMWARE_CATALOG_BUILTIN.get("recovery", [])),
+        "system": list(FIRMWARE_CATALOG_BUILTIN.get("system", []))
+    }
+    try:
+        if _FW_CATALOG_PATH.exists():
+            with open(_FW_CATALOG_PATH, 'r', encoding='utf-8') as f:
+                data = json.load(f) or {}
+                base["recovery"].extend(data.get("recovery", []))
+                base["system"].extend(data.get("system", []))
+    except Exception:
+        traceback.print_exc()
+
+    # Подгружаем дополнительные файлы из catalog/
+    try:
+        catalog_dir = pathlib.Path(os.getcwd()) / 'catalog'
+        if catalog_dir.exists() and catalog_dir.is_dir():
+            for p in sorted(catalog_dir.glob('*.json')):
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        data = json.load(f) or {}
+                        rec = data.get('recovery', [])
+                        sys = data.get('system', [])
+                        if isinstance(rec, list):
+                            base['recovery'].extend(rec)
+                        if isinstance(sys, list):
+                            base['system'].extend(sys)
+                except Exception:
+                    traceback.print_exc()
+    except Exception:
+        traceback.print_exc()
+
+    return base
+
+
+def _save_favorites(names: list[str]) -> None:
+    try:
+        with open(_FW_FAVORITES_PATH, 'w', encoding='utf-8') as f:
+            json.dump({"names": names}, f, ensure_ascii=False, indent=2)
+    except Exception:
+        traceback.print_exc()
+
+
+def _load_favorites() -> list[str]:
+    try:
+        if not _FW_FAVORITES_PATH.exists():
+            return []
+        with open(_FW_FAVORITES_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            names = data.get('names')
+            return names if isinstance(names, list) else []
+    except Exception:
+        traceback.print_exc()
+        return []
+
+
+def _device_tuple_or_none() -> tuple[str, str] | None:
+    ok, err = _ensure_device_online()
+    if not ok:
+        return None
+    man, model, _ = _get_manufacturer_and_model()
+    return (man, model)
+
+
+def _matches_device(entry: dict, manufacturer: str, model: str) -> bool:
+    try:
+        vendors = [str(v).lower() for v in (entry.get('vendors') or [])]
+        models = [str(m).lower() for m in (entry.get('models') or [])]
+        if vendors and manufacturer.lower() not in vendors:
+            return False
+        if models:
+            low = model.lower()
+            return any(m in low for m in models)
+        return True
+    except Exception:
+        return False
+
+
+def _extract_codename(manufacturer: str, model: str) -> str | None:
+    try:
+        import re
+        txt = f"{manufacturer} {model}".strip()
+        m = re.search(r'\(([^\)]+)\)', txt)
+        if m:
+            code = m.group(1).strip()
+            if 2 <= len(code) <= 32:
+                return code
+        low = txt.lower()
+        known = {
+            'redmi note 8': 'ginkgo',
+            'poco f3': 'alioth',
+            'poco x3 nfc': 'surya',
+            'poco x3 pro': 'vayu',
+            'redmi note 7': 'lavender',
+            'redmi note 8t': 'willow',
+            'redmi note 5': 'whyred',
+            'redmi note 4': 'mido',
+            'redmi 4x': 'santoni',
+            'redmi 7a': 'pine',
+            'redmi 6a': 'cactus',
+            'redmi 9': 'lancelot',
+            'poco f1': 'beryllium',
+            'mi a1': 'tissot',
+            'mi a2': 'jasmine_sprout',
+            'oneplus one': 'bacon',
+            'oneplus 3': 'oneplus3',
+            'oneplus 5': 'cheeseburger',
+            'oneplus 6': 'enchilada',
+            'moto g5 plus': 'potter',
+            'moto g4': 'athene',
+            'nexus 5': 'hammerhead',
+            'nexus 5x': 'bullhead',
+            'nexus 6': 'shamu',
+        }
+        for key, val in known.items():
+            if key in low:
+                return val
+        return None
+    except Exception:
+        return None
+
+
+def _provider_online_recovery(manufacturer: str, model: str) -> list[dict]:
+    code = _extract_codename(manufacturer, model)
+    if not code:
+        return []
+    out: list[dict] = []
+    twrp_url = f"https://dl.twrp.me/{code}/recovery.img"
+    out.append({
+        "name": f"TWRP - {model} ({code})",
+        "partition": "recovery",
+        "vendors": [manufacturer],
+        "models": [model.lower(), code.lower()],
+        "url": twrp_url,
+        "source": "online",
+    })
+    of_url = f"https://api.orangefox.download/device/{code}/recovery.img"
+    out.append({
+        "name": f"OrangeFox - {model} ({code})",
+        "partition": "recovery",
+        "vendors": [manufacturer],
+        "models": [model.lower(), code.lower()],
+        "url": of_url,
+        "source": "online",
+    })
+    # PitchBlack Recovery (страница загрузки по коду, если доступна)
+    pbrp_url = f"https://pitchblackrecovery.com/download/{code}"
+    out.append({
+        "name": f"PitchBlack - {model} ({code})",
+        "partition": "recovery",
+        "vendors": [manufacturer],
+        "models": [model.lower(), code.lower()],
+        "url": pbrp_url,
+        "source": "online_page",
+    })
+    # SHRP (страница на SourceForge зачастую разбита по устройствам)
+    shrp_url = f"https://sourceforge.net/projects/shrp/files/{code}/"
+    out.append({
+        "name": f"SHRP - {model} ({code})",
+        "partition": "recovery",
+        "vendors": [manufacturer],
+        "models": [model.lower(), code.lower()],
+        "url": shrp_url,
+        "source": "online_page",
+    })
+    return out
+
+
+def _provider_online_system(manufacturer: str, model: str) -> list[dict]:
+    code = _extract_codename(manufacturer, model)
+    if not code:
+        return []
+    out: list[dict] = []
+
+    providers: list[tuple[str, str]] = [
+        ("LineageOS", f"https://download.lineageos.org/devices/{code}"),
+        ("PixelExperience", f"https://download.pixelexperience.org/{code}"),
+        ("crDroid", f"https://crdroid.net/{code}"),
+        ("EvolutionX", f"https://evolution-x.org/device/{code}"),
+        ("ArrowOS", f"https://arrowos.net/download?device={code}"),
+        ("PixelOS", f"https://pixelos.net/download/{code}"),
+        ("AOSP Extended", f"https://downloads.aospextended.com/{code}"),
+        ("Resurrection Remix", f"https://get.resurrectionremix.com/{code}"),
+        ("Paranoid Android", f"https://paranoidandroid.co/devices/{code}"),
+        ("Havoc-OS", f"https://download.havoc-os.com/{code}"),
+        ("DerpFest", f"https://derpfest.org/device/{code}"),
+        ("OmniROM", f"https://dl.omnirom.org/{code}"),
+        ("NitrogenOS", f"https://sourceforge.net/projects/nitrogen-project/files/{code}/"),
+        ("CarbonROM", f"https://get.carbonrom.org/device/{code}"),
+        ("Bliss ROM", f"https://downloads.blissroms.org/download/{code}"),
+        ("Potato Open Sauce (POSP)", f"https://potatoproject.co/device/{code}"),
+        ("MSM Xtended", f"https://downloads.msmdroid.com/{code}"),
+        ("dotOS", f"https://www.dotos.org/devices/{code}"),
+        ("Bootleggers", f"https://downloads.bootleggersrom.xyz/{code}"),
+        ("AOSiP", f"https://aosip.dev/devices/{code}"),
+        ("Project Elixir", f"https://projectelixiros.com/device/{code}"),
+        ("Project Sakura", f"https://projectsakura.xyz/download/{code}"),
+        ("Project Zephyrus", f"https://sourceforge.net/projects/project-zyphrus/files/{code}/"),
+        ("Project Lighthouse", f"https://sourceforge.net/projects/project-lighthouse/files/{code}/"),
+        ("Corvus OS", f"https://get.corvusrom.com/{code}"),
+        ("PixysOS", f"https://downloads.pixysos.com/{code}"),
+        ("RevengeOS", f"https://sourceforge.net/projects/revengeos/files/{code}/"),
+        ("OctaviOS", f"https://downloads.octavi-os.com/{code}"),
+        ("LegionOS", f"https://downloads.legionrom.com/{code}"),
+        ("ColtOS", f"https://sourceforge.net/projects/coltos/files/{code}/"),
+        ("SuperiorOS", f"https://sourceforge.net/projects/superioros/files/{code}/"),
+        ("Syberia Project", f"https://syberiaos.com/downloads/{code}"),
+        ("Nusantara Project", f"https://sourceforge.net/projects/project-nusantara/files/{code}/"),
+        ("StatiXOS", f"https://downloads.statixos.com/{code}"),
+        ("PixelDust", f"https://pixeldustproject.org/devices/{code}"),
+        ("ShapeShiftOS", f"https://sourceforge.net/projects/shapeshiftos/files/{code}/"),
+        ("Dirty Unicorns", f"https://download.dirtyunicorns.com/devices/{code}"),
+        ("CherishOS", f"https://sourceforge.net/projects/cherish-os/files/{code}/"),
+        ("Nameless AOSP", f"https://nameless.wiki/guide/{code}"),
+        ("AwakenOS", f"https://sourceforge.net/projects/project-awaken/files/{code}/"),
+        ("FlamingoOS", f"https://sourceforge.net/projects/flamingoos/files/{code}/"),
+        ("LeOS", f"https://sourceforge.net/projects/leos-release/files/{code}/"),
+        ("RiceDroid", f"https://sourceforge.net/projects/ricedroid/files/{code}/"),
+        ("PixelPlusUI", f"https://downloads.pixelplusui.com/{code}"),
+        ("InfinityOS", f"https://sourceforge.net/projects/infinity-x/files/{code}/"),
+        ("ArrowOS (mirror)", f"https://sourceforge.net/projects/arrow-os/files/{code}/"),
+        ("AncientOS", f"https://sourceforge.net/projects/ancientrom/files/{code}/"),
+        ("AICP", f"https://dwnld.aicp-rom.com/{code}"),
+        ("The Pixel Remix (TPR)", f"https://sourceforge.net/projects/thepixelremix/files/{code}/"),
+        ("Resurrection Remix (mirror)", f"https://sourceforge.net/projects/resurrectionremix/files/{code}/"),
+        ("LineageOS (mirror)", f"https://mirrorbits.lineageos.org/full/{code}/"),
+        ("KangOS", f"https://sourceforge.net/projects/kangos-project/files/{code}/"),
+        ("Pixel Extended (PEX)", f"https://sourceforge.net/projects/pixelexperiences/files/{code}/"),
+        ("MIUI Mix", "https://miuimix.ru/"),
+        ("Xiaomi.EU (device forum)", f"https://xiaomi.eu/community/forums/{code}.123/"),
+        ("PixelOS (SF mirror)", f"https://sourceforge.net/projects/pixelos-releases/files/{code}/"),
+        ("PixelOS (alt)", f"https://get.pixelsauce.org/{code}"),
+    ]
+
+    for pname, purl in providers:
+        out.append({
+            "name": f"{pname} - {model} ({code})",
+            "partition": "system",
+            "vendors": [manufacturer],
+            "models": [model.lower(), code.lower()],
+            "url": purl,
+            "source": "online_page",
+        })
+
+    return out
+
+@eel.expose
+def fw_get_device() -> dict:
+    try:
+        dev = _device_tuple_or_none()
+        if not dev:
+            return {"ok": True, "connected": False}
+        man, model = dev
+        return {"ok": True, "connected": True, "manufacturer": man, "model": model}
+    except Exception:
+        err = traceback.format_exc()
+        print(err)
+        return {"ok": False, "error": err}
+
+
+@eel.expose
+def fw_find_device(query: str) -> dict:
+    """Возвращает список вариантов устройств из каталога по подстроке."""
+    try:
+        q = (query or '').strip().lower()
+        if not q:
+            return {"ok": True, "items": []}
+        cat = _load_fw_catalog()
+        seen: set[tuple[str, str]] = set()
+        items: list[dict] = []
+        for category in ('recovery', 'system'):
+            for it in cat.get(category, []):
+                vendors = it.get('vendors') or []
+                models = it.get('models') or []
+                for v in vendors or ['']:
+                    for m in models or ['']:
+                        cand_v = str(v)
+                        cand_m = str(m)
+                        label = (cand_v + ' ' + cand_m).strip()
+                        if not label:
+                            continue
+                        if q in label.lower():
+                            key = (cand_v.lower(), cand_m.lower())
+                            if key not in seen:
+                                seen.add(key)
+                                items.append({"manufacturer": cand_v, "model": cand_m})
+        # ограничим до разумного кол-ва
+        return {"ok": True, "items": items[:50]}
+    except Exception:
+        err = traceback.format_exc()
+        print(err)
+        return {"ok": False, "error": err}
+
+
+@eel.expose
+def fw_list(category: str, manufacturer: str | None = None, model: str | None = None) -> dict:
+    try:
+        cat = (category or 'recovery').lower()
+        data = _load_fw_catalog().get(cat, [])
+        man = (manufacturer or '').strip()
+        mod = (model or '').strip()
+        if man and mod:
+            filtered = [x for x in data if _matches_device(x, man, mod)]
+        elif man:
+            filtered = [x for x in data if _matches_device(x, man, mod)]
+        else:
+            filtered = data
+        # Добавляем онлайн-провайдеры
+        online_items: list[dict] = []
+        if man and mod:
+            if cat == 'recovery':
+                online_items = _provider_online_recovery(man, mod)
+            elif cat == 'system':
+                online_items = _provider_online_system(man, mod)
+        by_name: dict[str, dict] = {}
+        seen_urls: set[str] = set()
+        merged_items = [*filtered, *online_items]
+        unique_items: list[dict] = []
+        for it in merged_items:
+            name = str(it.get('name', '')).strip()
+            url = str(it.get('url', '')).strip()
+            key = name.lower()
+            url_key = url.lower()
+
+            if url_key and url_key in seen_urls:
+                continue
+            if key and key in by_name:
+                # Если названия совпадают, но URL разные, оставляем только первый.
+                continue
+
+            if key:
+                by_name[key] = it
+            if url_key:
+                seen_urls.add(url_key)
+            unique_items.append(it)
+
+        merged = unique_items
+        fav = set(_load_favorites())
+        # enrich
+        out = []
+        for it in merged:
+            name = str(it.get('name', ''))
+            out.append({
+                **it,
+                "favorite": name in fav
+            })
+        return {"ok": True, "items": out}
+    except Exception:
+        err = traceback.format_exc()
+        print(err)
+        return {"ok": False, "error": err}
+
+
+@eel.expose
+def fw_get_favorites() -> dict:
+    try:
+        return {"ok": True, "names": _load_favorites()}
+    except Exception:
+        err = traceback.format_exc()
+        print(err)
+        return {"ok": False, "error": err}
+
+
+@eel.expose
+def fw_toggle_favorite(name: str) -> dict:
+    try:
+        name = (name or '').strip()
+        if not name:
+            return {"ok": False, "error": "Пустое имя прошивки"}
+        fav = set(_load_favorites())
+        if name in fav:
+            fav.remove(name)
+            state = False
+        else:
+            fav.add(name)
+            state = True
+        _save_favorites(sorted(fav))
+        return {"ok": True, "favorite": state}
+    except Exception:
+        err = traceback.format_exc()
+        print(err)
+        return {"ok": False, "error": err}
+
+
+@eel.expose
+def fw_get_download_progress(name: str) -> dict:
+    try:
+        key = (name or '').strip()
+        if not key:
+            return {"ok": False, "error": "Пустое имя загрузки"}
+        entry = _FW_DOWNLOAD_PROGRESS.get(key)
+        if not entry:
+            return {"ok": False}
+        return {"ok": True, "name": key, **entry}
+    except Exception:
+        err = traceback.format_exc()
+        print(err)
+        return {"ok": False, "error": err}
+
+
+@eel.expose
+def fw_clear_download_progress(name: str) -> dict:
+    try:
+        key = (name or '').strip()
+        if key:
+            _FW_DOWNLOAD_PROGRESS.pop(key, None)
+        return {"ok": True}
+    except Exception:
+        err = traceback.format_exc()
+        print(err)
+        return {"ok": False, "error": err}
+
+
+@eel.expose
+def fw_download(category: str, name: str, manufacturer: str | None = None, model: str | None = None) -> dict:
+    try:
+        name = (name or '').strip()
+        if not name:
+            return {"ok": False, "error": "Не указано имя прошивки"}
+        cat = (category or 'recovery').lower()
+        man = (manufacturer or '').strip()
+        mod = (model or '').strip()
+
+        res = fw_list(cat, man or None, mod or None)
+        if not isinstance(res, dict) or not res.get('ok'):
+            return res if isinstance(res, dict) else {"ok": False, "error": "Не удалось получить список прошивок"}
+        items = res.get('items') or []
+        target = next((it for it in items if str(it.get('name')) == name), None)
+        if not target:
+            return {"ok": False, "error": "Прошивка не найдена"}
+
+        url = _resolve_download_url(target).strip()
+        if not url:
+            return {"ok": False, "error": "Не удалось получить ссылку для скачивания"}
+
+        downloads_dir = pathlib.Path(os.getcwd()) / 'downloads' / 'firmware'
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+
+        from urllib.parse import urlparse, unquote
+        import re
+
+        parsed = urlparse(url)
+        parsed_path = unquote(parsed.path or '')
+        fname = pathlib.Path(parsed_path).name
+        if not fname or fname.lower() in ('download', 'index.html', 'get'):
+            safe_name = re.sub(r'[^a-zA-Z0-9._-]+', '_', str(target.get('name', 'firmware'))).strip('_')
+            if not safe_name:
+                safe_name = 'firmware'
+            partition = str(target.get('partition', 'fw')).lower()
+            ext = '.img' if partition == 'recovery' else '.zip'
+            fname = f"{safe_name}_{int(time.time())}{ext}"
+
+        local_path = downloads_dir / fname
+        progress_entry = _FW_DOWNLOAD_PROGRESS.setdefault(name, {})
+        progress_entry.update({
+            "status": "starting",
+            "downloaded": 0,
+            "total": 0,
+            "url": url,
+            "updated_at": time.time()
+        })
+
+        def _progress(downloaded: int, total: int) -> None:
+            entry = _FW_DOWNLOAD_PROGRESS.setdefault(name, {"url": url})
+            entry["downloaded"] = downloaded
+            entry["total"] = total
+            entry["status"] = "downloading"
+            entry["updated_at"] = time.time()
+
+        ok_dl, err_dl = _download_to(local_path, url, progress=_progress)
+        if not ok_dl:
+            entry = _FW_DOWNLOAD_PROGRESS.setdefault(name, {"url": url})
+            entry["status"] = "error"
+            entry["error"] = err_dl or "Неизвестная ошибка"
+            entry.setdefault("downloaded", 0)
+            entry.setdefault("total", 0)
+            entry["updated_at"] = time.time()
+            try:
+                eel.fail_fw_download(name, err_dl or '')
+            except Exception:
+                pass
+            return {"ok": False, "error": f"Не удалось скачать: {err_dl}"}
+
+        size = local_path.stat().st_size if local_path.exists() else _FW_DOWNLOAD_PROGRESS.get(name, {}).get("downloaded", 0)
+        entry = _FW_DOWNLOAD_PROGRESS.setdefault(name, {"url": url})
+        entry.update({
+            "status": "finished",
+            "downloaded": size,
+            "total": size or entry.get("total", size),
+            "path": str(local_path),
+            "updated_at": time.time()
+        })
+
+        return {"ok": True, "path": str(local_path), "name": name}
+    except Exception:
+        err = traceback.format_exc()
+        print(err)
+        return {"ok": False, "error": err}
+
+
+def _download_to(path: pathlib.Path, url: str, progress: Callable[[int, int], None] | None = None) -> tuple[bool, str | None]:
+    try:
+        import requests
+        path.parent.mkdir(parents=True, exist_ok=True)
+        r = requests.get(url, timeout=60, stream=True)
+        r.raise_for_status()
+        total = int(r.headers.get('content-length') or 0)
+        downloaded = 0
+        if progress:
+            try:
+                progress(downloaded, total)
+            except Exception:
+                pass
+        with open(path, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                if not chunk:
+                    continue
+                    f.write(chunk)
+                downloaded += len(chunk)
+                if progress:
+                    try:
+                        progress(downloaded, total)
+                    except Exception:
+                        pass
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
+def _http_get_text(url: str, timeout: int = 15) -> tuple[str | None, str | None]:
+    try:
+        import requests
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AutoRoot/1.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        }
+        r = requests.get(url, headers=headers, timeout=timeout)
+        r.raise_for_status()
+        return r.text, None
+    except Exception as e:
+        return None, str(e)
+
+
+def _http_get_json(url: str, timeout: int = 15) -> tuple[dict | list | None, str | None]:
+    try:
+        import requests
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AutoRoot/1.0',
+            'Accept': 'application/json'
+        }
+        r = requests.get(url, headers=headers, timeout=timeout)
+        r.raise_for_status()
+        return r.json(), None
+    except Exception as e:
+        return None, str(e)
+
+
+def _extract_download_link_from_html(html: str, base_url: str, allowed_exts: list[str]) -> str | None:
+    try:
+        import re
+        from urllib.parse import urljoin
+
+        meta = re.search(r'http-equiv\s*=\s*"refresh"[^>]*url=([^";>]+)', html, flags=re.IGNORECASE)
+        if meta:
+            link = meta.group(1).strip()
+            if link:
+                return urljoin(base_url, link)
+
+        candidates = set(re.findall(r'href=["\'](.*?)["\']', html, flags=re.IGNORECASE))
+        candidates.update(re.findall(r'(https?://[^"\'\s>]+)', html, flags=re.IGNORECASE))
+
+        for cand in candidates:
+            if not cand:
+                continue
+            cand = cand.strip()
+            lower = cand.lower()
+            if any(lower.endswith(ext) for ext in allowed_exts) or any(ext in lower for ext in allowed_exts):
+                return urljoin(base_url, cand)
+    except Exception:
+        pass
+    return None
+
+
+def _normalize_download_url(url: str, partition: str) -> str:
+    if not url:
+        return url
+
+    allowed_exts = ['.img', '.zip', '.bin', '.tar', '.tgz', '.tar.gz', '.rar', '.7z', '.xz', '.gz']
+    url_no_query = url.split('?', 1)[0].lower()
+    if any(url_no_query.endswith(ext) for ext in allowed_exts):
+        return url
+
+    try:
+        import requests
+        head_resp = requests.head(url, allow_redirects=True, timeout=10)
+        final_url = head_resp.url or url
+        final_no_query = final_url.split('?', 1)[0].lower()
+        content_type = (head_resp.headers.get('content-type') or '').lower()
+        if any(final_no_query.endswith(ext) for ext in allowed_exts):
+            return final_url
+        if any(token in content_type for token in ['application/zip', 'application/octet-stream', 'application/x-', 'application/gzip', 'application/x-gzip', 'application/x-7z-compressed', 'application/x-rar-compressed', 'application/x-tar']) or 'image' in content_type:
+            return final_url
+        if content_type and 'text/html' not in content_type:
+            return final_url
+        url = final_url
+    except Exception:
+        pass
+
+    html, err = _http_get_text(url)
+    if isinstance(html, str):
+        link = _extract_download_link_from_html(html, url, allowed_exts)
+        if link:
+            return link
+    return url
+
+
+def _extract_pixelexperience_from_html(html: str, prefer_plus: bool, partition: str) -> str | None:
+    try:
+        import json
+        import re
+        m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, flags=re.DOTALL)
+        if not m:
+            return None
+        data = json.loads(m.group(1))
+    except Exception:
+        return None
+
+    page_props = data if isinstance(data, dict) else {}
+    page_props = page_props.get('props') if isinstance(page_props.get('props'), dict) else {}
+    page_props = page_props.get('pageProps') if isinstance(page_props.get('pageProps'), dict) else page_props
+
+    builds_data = []
+    if isinstance(page_props, dict):
+        bd = page_props.get('buildsData')
+        if isinstance(bd, list):
+            builds_data = bd
+        else:
+            # В некоторых страницах данные могут лежать в pageProps['build']
+            single_build = page_props.get('build')
+            if isinstance(single_build, dict):
+                target = single_build
+                if partition == 'recovery':
+                    rec = target.get('recovery_image') or {}
+                    return rec.get('url') or target.get('url')
+                return target.get('url')
+
+    if not builds_data:
+        return None
+
+    def _choose_build() -> dict | None:
+        chosen: dict | None = None
+        for entry in builds_data:
+            if not isinstance(entry, dict):
+                continue
+            version_info = entry.get('version_info') or {}
+            version_name = str(version_info.get('version_name', '')).lower()
+            builds = entry.get('builds') or []
+            if not isinstance(builds, list) or not builds:
+                continue
+            is_plus_version = 'plus' in version_name
+            if prefer_plus and not is_plus_version:
+                continue
+            if not prefer_plus and is_plus_version:
+                if chosen is None:
+                    # пропускаем plus, но запомнили на всякий случай
+                    chosen = builds[0]
+                continue
+            return builds[0]
+        if chosen:
+            return chosen
+        for entry in builds_data:
+            builds = entry.get('builds') or []
+            if isinstance(builds, list) and builds:
+                return builds[0]
+        return None
+
+    build = _choose_build()
+    if not isinstance(build, dict):
+        return None
+
+    if partition == 'recovery':
+        rec = build.get('recovery_image') or {}
+        url = rec.get('url')
+        if isinstance(url, str) and url.strip():
+            return url.strip()
+
+    url = build.get('url')
+    if isinstance(url, str) and url.strip():
+        return url.strip()
+    return None
+
+
+def _resolve_download_url(item: dict) -> str:
+    """Пытается получить прямую ссылку для загрузки из официальной страницы/API.
+    Возвращает исходный URL, если ничего лучше найти не удалось.
+    Поддерживает некоторые популярные проекты (LineageOS, ArrowOS, SourceForge-страницы и др.).
+    """
+    try:
+        import re
+        url = str(item.get('url', '')).strip()
+        partition = str(item.get('partition', '')).strip().lower()
+        name = str(item.get('name', ''))
+
+        if not url:
+            return url
+
+        # Если это уже прямая ссылка на образ/zip — возвращаем как есть
+        if any(url.lower().endswith(ext) for ext in ('.img', '.zip', '.apk')):
+            return _normalize_download_url(url, partition)
+
+        # TWRP прямой путь по коду устройства
+        # dl.twrp.me/<code>/recovery.img — уже прямой
+        if 'dl.twrp.me' in url:
+            return _normalize_download_url(url, partition)
+
+        # OrangeFox API уже выдает прямой img
+        if 'api.orangefox.download' in url:
+            return _normalize_download_url(url, partition)
+
+        # PixelExperience — страница с React/Next.js, извлекаем прямую ссылку из __NEXT_DATA__
+        if 'pixelexperience.org' in url:
+            prefer_plus = 'plus' in name.lower()
+            html, err = _http_get_text(url)
+            if isinstance(html, str):
+                direct = _extract_pixelexperience_from_html(html, prefer_plus, partition)
+                if direct:
+                    return _normalize_download_url(direct, partition)
+            # Если текущий URL это changelog-страница, пробуем получить JSON по ней же
+            # Иногда необходим реальный build. Попробуем вариант с добавлением '/download'.
+            if '/changelog/' in url and not url.endswith('/download'):
+                alt = url.rstrip('/') + '/download'
+                alt = _normalize_download_url(alt, partition)
+                if alt != url:
+                    return alt
+
+        # LineageOS: используем публичный OTA API если удалось извлечь код устройства из имени
+        # Ожидается, что models содержит и код, и модель
+        models = [str(m).lower() for m in (item.get('models') or [])]
+        code = None
+        for m in models:
+            if len(m) <= 16 and re.fullmatch(r'[a-z0-9_\-]+', m or ''):
+                code = m
+                break
+        if 'download.lineageos.org' in url and code:
+            # тип сборки: nightly/stable — возьмём nightly как наиболее распространённый
+            api = f"https://ota.lineageos.org/api/v1/{code}/nightly/latest"
+            data, err = _http_get_json(api)
+            if isinstance(data, dict):
+                # В ответе ожидается поле 'response' со списком
+                resp = data.get('response') if isinstance(data.get('response'), list) else []
+                if resp:
+                    rom = resp[0]
+                    dl = rom.get('url') or rom.get('download')
+                    if isinstance(dl, str) and dl.lower().endswith('.zip'):
+                        return _normalize_download_url(dl, partition)
+
+        # ArrowOS: официальный API
+        if ('arrowos.net' in url or 'arrowos' in name.lower()) and code:
+            api = f"https://api.arrowos.net/v2/devices/{code}.json"
+            data, err = _http_get_json(api)
+            if isinstance(data, dict):
+                builds = data.get('response') or data.get('files') or []
+                if isinstance(builds, list) and builds:
+                    # берём первый (последний) билд со ссылкой
+                    for b in builds:
+                        dl = b.get('url') or b.get('download')
+                        if isinstance(dl, str) and dl.lower().endswith('.zip'):
+                            return _normalize_download_url(dl, partition)
+
+        # SourceForge-страницы (SHRP, PBRP, EvolutionX и т.п.):
+        # вытягиваем первую ссылку на .img или .zip из HTML
+        if 'sourceforge.net/projects/' in url:
+            html, err = _http_get_text(url)
+            if isinstance(html, str):
+                # Ищем ссылки на /files/.../(download|/...) и прямые зеркала downloads.sourceforge.net
+                candidates = re.findall(r'href=["\'](.*?)["\']', html, flags=re.IGNORECASE)
+                sf_links: list[str] = []
+                for h in candidates:
+                    h2 = h.strip()
+                    if not h2:
+                        continue
+                    if any(x in h2 for x in ['downloads.sourceforge.net/project/', '/files/']):
+                        if any(h2.lower().endswith(ext) or (ext in h2.lower()) for ext in ['.img', '.zip']):
+                            sf_links.append(h2)
+                    if h2.startswith('/projects/'):
+                        full = 'https://sourceforge.net' + h2
+                        if any(full.lower().endswith(ext) or (ext in full.lower()) for ext in ['.img', '.zip']):
+                            sf_links.append(full)
+                if sf_links:
+                    # если это страница /files/... — добавим /download для редиректа на зеркало
+                    chosen = sf_links[0]
+                    if '/files/' in chosen and not chosen.endswith('/download'):
+                        chosen = chosen.rstrip('/') + '/download'
+                    return _normalize_download_url(chosen, partition)
+
+        # PitchBlack страница загрузки по коду: попробуем найти .img или SF ссылку
+        if 'pitchblackrecovery.com/download/' in url:
+            html, err = _http_get_text(url)
+            if isinstance(html, str):
+                candidates = re.findall(r'href=["\'](.*?)["\']', html, flags=re.IGNORECASE)
+                for h in candidates:
+                    if h.lower().endswith('.img') or h.lower().endswith('.zip'):
+                        return _normalize_download_url(h, partition)
+                    if 'sourceforge.net' in h:
+                        # переиспользуем обработку SF
+                        resolved_sf = _resolve_download_url({"url": h, "partition": partition, "name": name, "models": item.get('models')})
+                        return _normalize_download_url(resolved_sf, partition)
+
+        # По умолчанию — возвращаем исходный URL
+        return _normalize_download_url(url, partition)
+    except Exception:
+        return str(item.get('url', ''))
+
+@eel.expose
+def fw_install(category: str, selected_names: list[str], manufacturer: str | None = None, model: str | None = None, method: str = 'auto', continue_without_backup: bool = False, pre_downloaded: dict[str, str] | None = None) -> dict:
+    """Установка выбранных прошивок.
+    Для каждой прошивки из каталога скачиваем файл и прошиваем соответствующий раздел.
+    Перед началом пытаемся выполнить бэкап указанного раздела, при неудаче возвращаем флаг needs_backup_confirm.
+    """
+    try:
+        if not selected_names:
+            return {"ok": False, "error": "Не выбраны прошивки"}
+
+        # Определяем устройство (может быть вручную передано из UI)
+        if manufacturer and model:
+            man, mod = manufacturer, model
+        else:
+            dev = _device_tuple_or_none()
+            if not dev:
+                return {"ok": False, "error": "Устройство не подключено"}
+            man, mod = dev
+
+        # Собираем элементы каталога
+        c = _load_fw_catalog().get((category or 'recovery').lower(), [])
+        name_to_item = {str(x.get('name')): x for x in c}
+        items: list[dict] = []
+        for n in selected_names:
+            it = name_to_item.get(n)
+            if not it:
+                return {"ok": False, "error": f"Прошивка не найдена в каталоге: {n}"}
+            if not _matches_device(it, man, mod):
+                # пропускаем несовместимые молча — фронт отфильтрует
+                continue
+            items.append(it)
+        if not items:
+            return {"ok": False, "error": "Нет совместимых прошивок для данного устройства"}
+
+        # Бэкап перед установкой (для каждого уникального раздела)
+        tried_backup: set[str] = set()
+        failed_backup_error: str | None = None
+        for it in items:
+            partition = str(it.get('partition', '')).strip()
+            if not partition:
+                continue
+            if partition in tried_backup:
+                continue
+            tried_backup.add(partition)
+            backup_filename = f"{partition}_{man}_{mod}_{int(time.time())}.img"
+            backup_path = pathlib.Path(os.getcwd()) / 'backups' / backup_filename
+            res = perform_backup_partition(partition=partition, dest_path=str(backup_path), method=method)
+            if not res.get('ok'):
+                failed_backup_error = res.get('error') or 'Не удалось создать бэкап'
+                break
+
+        if failed_backup_error and not continue_without_backup:
+            return {"ok": False, "needs_backup_confirm": True, "error": failed_backup_error}
+
+        # Скачиваем и прошиваем
+        downloads_dir = pathlib.Path(os.getcwd()) / 'downloads' / 'firmware'
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        results: list[dict] = []
+        pre_map: dict[str, str] = {}
+        if isinstance(pre_downloaded, dict):
+            pre_map = {str(k): str(v) for k, v in pre_downloaded.items() if isinstance(k, str) and isinstance(v, str)}
+        for it in items:
+            # Резолвим прямую ссылку с официальных страниц, если нужно
+            url = _resolve_download_url(it).strip()
+            partition = str(it.get('partition', '')).strip()
+            name_str = str(it.get('name', '')).strip()
+
+            pre_path = None
+            if pre_map:
+                pre_path = pre_map.get(name_str) or pre_map.get(name_str.lower())
+
+            local_path: pathlib.Path
+            if pre_path:
+                candidate = pathlib.Path(pre_path)
+                if candidate.exists():
+                    local_path = candidate
+                else:
+                    fname = pathlib.Path(url).name or f"{partition}_{int(time.time())}.img"
+                    local_path = downloads_dir / fname
+                    ok_dl, err_dl = _download_to(local_path, url)
+                    if not ok_dl:
+                        results.append({"name": it.get('name'), "ok": False, "error": f"Не удалось скачать: {err_dl}"})
+                        continue
+            else:
+                fname = pathlib.Path(url).name or f"{partition}_{int(time.time())}.img"
+                local_path = downloads_dir / fname
+                ok_dl, err_dl = _download_to(local_path, url)
+                if not ok_dl:
+                    results.append({"name": it.get('name'), "ok": False, "error": f"Не удалось скачать: {err_dl}"})
+                    continue
+
+            fl_res = perform_flash(partition=partition, image_path=str(local_path), method=method)
+            if not fl_res.get('ok'):
+                results.append({"name": it.get('name'), "ok": False, "error": fl_res.get('error')})
+            else:
+                results.append({"name": it.get('name'), "ok": True})
+
+        overall_ok = all(r.get('ok') for r in results)
+        return {"ok": overall_ok, "results": results}
+    except Exception:
+        err = traceback.format_exc()
+        print(err)
+        return {"ok": False, "error": err}
+
 
 eel.start('index.html', size=(1200, 800))

@@ -1,4 +1,18 @@
 /* web/style.css */
+* {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+input, textarea, select, [contenteditable="true"] {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+}
+
 body {
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     background-color: var(--bg);
@@ -16,6 +30,7 @@ body {
 [data-theme="redblack"] { --neon:#ff2e2e; --bg:#140607; }
 [data-theme="cyberpunk"] { --neon:#d946ef; --bg:#0b0618; }
 [data-theme="space"] { --neon:#8b5cf6; --bg:#0b1020; }
+[data-theme="liquidglass"] { --neon:#00d4ff; --bg:#0a1628; }
 
 .container {
     display: flex;
@@ -187,6 +202,43 @@ input[type="text"], select {
 }
 input::placeholder { color: #94a3b8; }
 
+/* Checkbox styling */
+.neon-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--neon);
+    border-radius: 4px;
+    background: transparent;
+    position: relative;
+    cursor: pointer;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--neon) 40%, transparent);
+    transition: all 0.3s ease;
+}
+
+.neon-checkbox:checked {
+    background: var(--neon);
+    box-shadow: 0 0 12px var(--neon);
+}
+
+.neon-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--bg);
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.neon-checkbox:hover {
+    box-shadow: 0 0 15px var(--neon);
+    border-color: color-mix(in srgb, var(--neon) 85%, #ffffff 0%);
+}
+
 /* Collapsible details styling */
 .neon-details {
     background: rgba(15,23,42,0.35);
@@ -232,6 +284,51 @@ input::placeholder { color: #94a3b8; }
     transform: scale(1.05);
 }
 
+/* Firmware tab */
+.suggestions {
+    position: relative;
+    max-width: 380px;
+}
+.suggestions-list {
+    position: absolute;
+    z-index: 40;
+    background: color-mix(in srgb, var(--bg) 96%, black 4%);
+    border: 1px solid color-mix(in srgb, var(--neon) 35%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--neon) 25%, transparent);
+    width: 100%;
+    margin-top: 6px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.suggestion-item {
+    padding: 8px 10px;
+    cursor: pointer;
+}
+.suggestion-item:hover {
+    background: rgba(148,163,184,0.08);
+}
+.fw-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.fw-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.fw-star {
+    cursor: pointer;
+    font-size: 18px;
+}
+.fw-star.fav {
+    color: var(--neon);
+    text-shadow: 0 0 8px var(--neon);
+}
+.fw-incompatible {
+    opacity: 0.4;
+}
+
 .icon-btn {
     background: transparent;
     color: var(--neon);
@@ -249,8 +346,20 @@ input::placeholder { color: #94a3b8; }
     right: 16px;
     z-index: 30;
 }
+#update-fab {
+    position: fixed;
+    top: 10px;
+    right: 60px; /* левее кнопки тем */
+    z-index: 30;
+}
 .icon-btn:hover {
     box-shadow: 0 0 14px color-mix(in srgb, var(--neon) 40%, transparent);
+}
+
+#update-fab.update-available {
+    /* Подчёркивание для иконки: рисуем нижнюю линию и свечение */
+    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--neon) 85%, transparent), 0 0 16px color-mix(in srgb, var(--neon) 40%, transparent);
+    border-color: color-mix(in srgb, var(--neon) 45%, transparent);
 }
 
 /* Animated vertical sparks background */
@@ -289,4 +398,140 @@ input::placeholder { color: #94a3b8; }
 @keyframes rise {
     from { background-position-y: 0, 0, 0, 0; }
     to   { background-position-y: -800px, -1200px, -1400px, -1000px; }
+}
+
+/* Liquid Glass Theme Effects */
+[data-theme="liquidglass"] .modal-panel {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background-color: rgba(10, 22, 40, 0.4) !important;
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.1);
+}
+
+[data-theme="liquidglass"] .sidebar {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background-color: rgba(10, 22, 40, 0.4) !important;
+    border-right: 1px solid rgba(0, 212, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.1);
+}
+
+[data-theme="liquidglass"] .neon-button {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background-color: rgba(0, 212, 255, 0.1);
+    border: 2px solid rgba(0, 212, 255, 0.5);
+    border-radius: 20px 8px 20px 8px;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    position: relative;
+    overflow: hidden;
+    transform-origin: center;
+}
+
+[data-theme="liquidglass"] .neon-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(0, 212, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+[data-theme="liquidglass"] .neon-button:hover {
+    transform: scale(1.08) skew(-2deg, 1deg);
+    border-radius: 8px 20px 8px 20px;
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.6), inset 0 0 20px rgba(0, 212, 255, 0.2);
+}
+
+[data-theme="liquidglass"] .neon-button:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+[data-theme="liquidglass"] .neon-button:active {
+    transform: scale(0.95) skew(1deg, -1deg);
+    transition: all 0.1s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+[data-theme="liquidglass"] .icon-btn {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background-color: rgba(0, 212, 255, 0.1);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 12px 4px 12px 4px;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+[data-theme="liquidglass"] .icon-btn:hover {
+    transform: scale(1.15) rotate(5deg) skew(-3deg, 2deg);
+    border-radius: 4px 12px 4px 12px;
+    box-shadow: 0 0 25px rgba(0, 212, 255, 0.5);
+}
+
+[data-theme="liquidglass"] .fw-card,
+[data-theme="liquidglass"] .suggestions-list,
+[data-theme="liquidglass"] .suggestion-item {
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-radius: 16px 6px 16px 6px;
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+[data-theme="liquidglass"] .suggestion-item:hover {
+    transform: translateX(5px) skew(-1deg, 0.5deg);
+    border-radius: 6px 16px 6px 16px;
+    background: rgba(0, 212, 255, 0.15);
+}
+
+[data-theme="liquidglass"] .theme-option {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background-color: rgba(0, 212, 255, 0.05);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 14px 5px 14px 5px;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+[data-theme="liquidglass"] .theme-option:hover {
+    transform: scale(1.02) skew(-1deg, 0.5deg);
+    border-radius: 5px 14px 5px 14px;
+    background-color: rgba(0, 212, 255, 0.15);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+}
+
+[data-theme="liquidglass"] input[type="text"],
+[data-theme="liquidglass"] input[type="number"],
+[data-theme="liquidglass"] select,
+[data-theme="liquidglass"] textarea {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background-color: rgba(0, 212, 255, 0.1);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 12px 4px 12px 4px;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+[data-theme="liquidglass"] input[type="text"]:focus,
+[data-theme="liquidglass"] input[type="number"]:focus,
+[data-theme="liquidglass"] select:focus,
+[data-theme="liquidglass"] textarea:focus {
+    transform: scale(1.02) skew(-0.5deg, 0.3deg);
+    border-radius: 4px 12px 4px 12px;
+    border-color: rgba(0, 212, 255, 0.6);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+}
+
+[data-theme="liquidglass"] .page-title {
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+}
+
+[data-theme="liquidglass"] label {
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
 }
